@@ -1,0 +1,20 @@
+{
+  "ownedTokens": {
+    "1": {
+      "tokenId": "1",
+      "metadataHash": "c0ca139506601f92f569a4b98d48795441db5f58ba0ad15964058e2f645ca11b",
+      "metadata": "{\"name\": \"Mystic Sword\", \"color\": \"blue\"}"
+    },
+    "2": {
+      "tokenId": "2",
+      "metadataHash": "fbae86a7f928809d0b2f65a4200658555f5ba380e890f3758200c406ca2ab7b4",
+      "metadata": "{\"name\": \"Final Test\", \"id\": 789}"
+    },
+    "3": {
+      "tokenId": "3",
+      "metadataHash": "a50698d9fb577ca4b6c86178448ca27fa911113a323ee2900a22c3ce78c04858",
+      "metadata": "{\n  \"name\": \"Midnight Artifact #007\",\n  \"description\": \"Minted via UI with ZK-privacy\",\n  \"power\": 10\n}",
+      "txId": "004cd3c8c21a6eec1b46345f19fae84b31e71113fb96322b4c3ac4d9ac028a7db7"
+    }
+  }
+}
