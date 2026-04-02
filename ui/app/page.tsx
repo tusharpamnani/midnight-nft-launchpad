@@ -1,19 +1,26 @@
 'use client';
 
+import { useState, useEffect } from 'react';
 import { useContract } from '../hooks/useContract';
 import { useNFT } from '../hooks/useNFT';
 import { useWallet } from '../hooks/useWallet';
 import WalletConnect from '../components/WalletConnect';
+import ContractSelector from '../components/ContractSelector';
 import MintForm from '../components/MintForm';
 import NFTList from '../components/NFTList';
-import { Rocket, History, LayoutDashboard, Terminal, RefreshCw, Zap, ShieldCheck } from 'lucide-react';
+import { Rocket, History, LayoutDashboard, Terminal, RefreshCw, Zap, ShieldCheck, Wallet, Lock, PlusCircle } from 'lucide-react';
 
 export default function Home() {
   const { deployment, deploy, log, addLog } = useContract();
   const { nfts, mint, transfer, verify, isLoading, refreshNFTs } = useNFT(deployment?.contractAddress || null);
-  const { isConnected, isClient } = useWallet();
+  const { isConnected, isClient, address } = useWallet();
+  const [selectedContract, setSelectedContract] = useState<string | null>(null);
 
-  if (!isClient) return null;
+  useEffect(() => {
+    if (deployment?.contractAddress) {
+      setSelectedContract(deployment.contractAddress);
+    }
+  }, [deployment]);
 
   return (
     <main className="min-h-screen bg-zinc-950 text-zinc-100 selection:bg-indigo-500/30 font-sans relative overflow-x-hidden">
@@ -40,67 +47,72 @@ export default function Home() {
       </nav>
 
       <div className="max-w-7xl mx-auto p-6 md:p-8 space-y-12">
-        {/* Header / Deploy Section */}
-        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8 pb-8 border-b border-zinc-900">
-          <div className="max-w-2xl space-y-2">
-            <h2 className="text-4xl font-extrabold font-display tracking-tight text-white mb-2">
-              Privacy-Preserving NFT <span className="text-indigo-500">ZK Foundry</span>
-            </h2>
-            <p className="text-zinc-500 leading-relaxed max-w-lg">
-              Generate Zero-Knowledge proofs locally to mint NFTs with hidden metadata.
-              Your assets are publicly verifiable but only you know their true state.
-            </p>
+        {!isConnected ? (
+          <div className="flex flex-col items-center justify-center py-24 space-y-8 animate-in zoom-in-95 fade-in duration-500">
+             <div className="w-24 h-24 bg-indigo-600/10 rounded-3xl flex items-center justify-center relative">
+                <Lock className="w-10 h-10 text-indigo-500" />
+                <div className="absolute inset-0 bg-indigo-500/10 blur-xl animate-pulse"></div>
+             </div>
+             <div className="text-center space-y-2">
+                <h2 className="text-4xl font-extrabold font-display text-white tracking-tight">Access Secure Foundry</h2>
+                <p className="text-zinc-500 max-w-sm mx-auto">Connect your Lace wallet or use a secure recovery seed to manage your privacy-preserving NFTs.</p>
+             </div>
+             <div className="pt-4 drop-shadow-2xl">
+                <WalletConnect />
+             </div>
           </div>
-
-          <div className="flex flex-col gap-3 min-w-[320px]">
-             {deployment ? (
-               <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-2xl relative overflow-hidden group">
-                 <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 translate-x-2 -translate-y-2 group-hover:scale-125 transition-all">
-                    <ShieldCheck className="w-16 h-16 text-indigo-500" />
-                 </div>
-                 <p className="text-[10px] uppercase font-bold tracking-widest text-zinc-500 mb-1">Active Contract</p>
-                 <code className="text-xs font-mono text-indigo-400 block break-all mb-4">
-                  {deployment.contractAddress}
-                 </code>
-                 <div className="flex items-center gap-2 text-[10px] text-zinc-600 font-bold bg-zinc-950 p-2 rounded-lg border border-zinc-800">
-                   <History className="w-3 h-3" />
-                   Deployed {new Date(deployment.deployedAt).toLocaleDateString()}
-                 </div>
-               </div>
-             ) : (
-               <button
-                 onClick={() => deploy()}
-                 className="group flex flex-col items-center justify-center gap-3 border border-zinc-800 bg-zinc-950 hover:bg-zinc-900/60 p-8 rounded-2xl transition-all hover:border-indigo-600/30"
-               >
-                 <div className="w-12 h-12 bg-zinc-900 rounded-xl flex items-center justify-center group-hover:scale-110 group-hover:bg-indigo-600 transition-all shadow-xl shadow-black/50">
-                    <Rocket className="w-6 h-6 text-zinc-400 group-hover:text-white" />
-                 </div>
-                 <div className="text-center">
-                    <span className="block text-zinc-100 font-bold text-lg leading-none mb-1">Initialize Contract</span>
-                    <span className="text-zinc-600 text-xs font-medium">Standard Midnight NFT Registry</span>
-                 </div>
-               </button>
-             )}
+        ) : !selectedContract ? (
+          <div className="py-12">
+            <ContractSelector onSelect={setSelectedContract} addLog={addLog} />
           </div>
-        </div>
-
-        {/* Action Grid */}
-        <div className="grid grid-cols-1 lg:grid-cols-3 gap-10">
-          {/* Main Controls - 2 cols */}
-          <div className="lg:col-span-2 space-y-12">
-            {!isConnected ? (
-              <div className="p-12 text-center bg-zinc-950/40 border border-zinc-800 rounded-2xl">
-                 <h3 className="text-2xl font-bold font-display text-zinc-300">Connect Wallet to Begin</h3>
-                 <p className="text-zinc-500 mt-2 mb-6">Interaction requires an active connection to your Lace wallet.</p>
-                 <WalletConnect />
+        ) : (
+          <>
+            {/* Header / Contract Summary */}
+            <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-8 pb-10 border-b border-zinc-900 animate-in fade-in slide-in-from-top-4 duration-500">
+              <div className="max-w-2xl space-y-2">
+                <h2 className="text-4xl font-extrabold font-display tracking-tight text-white mb-2">
+                  NFT <span className="text-indigo-500">Registry Admin</span>
+                </h2>
+                <div className="flex flex-wrap gap-4 items-center">
+                   <div className="flex items-center gap-2 px-3 py-1.5 bg-green-500/10 border border-green-500/20 rounded-full">
+                      <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
+                      <span className="text-[10px] font-bold text-green-500 uppercase tracking-widest">Active State Synchronized</span>
+                   </div>
+                   <button 
+                      onClick={() => setSelectedContract(null)}
+                      className="text-[10px] font-bold text-zinc-500 hover:text-indigo-400 transition-colors uppercase tracking-widest flex items-center gap-1.5 bg-zinc-900 px-3 py-1.5 rounded-full border border-zinc-800"
+                   >
+                      <PlusCircle className="w-3.5 h-3.5" />
+                      Switch Registry
+                   </button>
+                </div>
               </div>
-            ) : (
-              <>
+
+              <div className="flex flex-col gap-3 min-w-[340px]">
+                <div className="bg-zinc-900 border border-zinc-800 rounded-2xl p-5 shadow-2xl relative overflow-hidden group">
+                  <div className="absolute top-0 right-0 p-3 opacity-10 group-hover:opacity-20 translate-x-2 -translate-y-2 group-hover:scale-125 transition-all">
+                    <ShieldCheck className="w-16 h-16 text-indigo-500" />
+                  </div>
+                  <p className="text-[10px] uppercase font-bold tracking-widest text-zinc-500 mb-1">Active Contract</p>
+                  <code className="text-xs font-mono text-indigo-400 block break-all mb-4">
+                    {selectedContract}
+                  </code>
+                  <div className="flex items-center gap-2 text-[10px] text-zinc-600 font-bold bg-zinc-950 p-2 rounded-lg border border-zinc-800">
+                    <History className="w-3 h-3" />
+                    Managed Instance
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Action Grid */}
+            <div className="grid grid-cols-1 lg:grid-cols-3 gap-10 animate-in fade-in slide-in-from-bottom-4 duration-500 delay-150">
+              <div className="lg:col-span-2 space-y-12">
                 <section>
                   <div className="flex items-center justify-between gap-3 mb-6">
                     <div className="flex items-center gap-2">
                        <LayoutDashboard className="w-5 h-5 text-indigo-500" />
-                       <h3 className="text-2xl font-bold font-display text-white">Your Private Collection</h3>
+                       <h3 className="text-2xl font-bold font-display text-white">Private Collection</h3>
                     </div>
                     <button 
                       onClick={refreshNFTs}
@@ -119,39 +131,38 @@ export default function Home() {
                 <section>
                    <MintForm onMint={mint} isLoading={isLoading} addLog={addLog} />
                 </section>
-              </>
-            )}
-          </div>
+              </div>
 
-          {/* Sidebar / Logs */}
-          <aside className="space-y-6">
-             <div className="bg-zinc-950 border border-zinc-800 rounded-2xl flex flex-col h-[600px] shadow-2xl relative">
-                <div className="flex items-center gap-2 p-5 border-b border-zinc-900 bg-zinc-900/30 rounded-t-2xl">
-                   <Terminal className="w-4 h-4 text-emerald-500" />
-                   <h4 className="text-xs font-bold uppercase tracking-widest text-zinc-400">Activity Logs</h4>
-                </div>
-                
-                <div className="flex-1 overflow-y-auto p-5 font-mono text-[11px] leading-relaxed space-y-3 custom-scrollbar">
-                  {log.length === 0 ? (
-                    <p className="text-zinc-700 italic">No activity yet. Logs will appear here.</p>
-                  ) : (
-                    log.map((entry, i) => (
-                      <div key={i} className="text-zinc-500 border-l border-zinc-800 pl-3">
-                        {entry}
+              <aside className="space-y-6">
+                 <div className="bg-zinc-950 border border-zinc-800 rounded-2xl flex flex-col h-[600px] shadow-2xl relative">
+                    <div className="flex items-center gap-2 p-5 border-b border-zinc-900 bg-zinc-900/30 rounded-t-2xl">
+                       <Terminal className="w-4 h-4 text-emerald-500" />
+                       <h4 className="text-xs font-bold uppercase tracking-widest text-zinc-400">Activity Logs</h4>
+                    </div>
+                    
+                    <div className="flex-1 overflow-y-auto p-5 font-mono text-[11px] leading-relaxed space-y-3 custom-scrollbar">
+                      {log.length === 0 ? (
+                        <p className="text-zinc-700 italic">No activity yet. Logs will appear here.</p>
+                      ) : (
+                        log.map((entry: string, i: number) => (
+                          <div key={i} className="text-zinc-500 border-l border-zinc-800 pl-3">
+                            {entry}
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    <div className="p-4 border-t border-zinc-900 bg-zinc-950 rounded-b-2xl">
+                      <div className="flex items-center gap-3">
+                         <div className="w-2 h-2 bg-indigo-500 rounded-full" />
+                         <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-tighter">Proof Generation Status: Idle</span>
                       </div>
-                    ))
-                  )}
-                </div>
-
-                <div className="p-4 border-t border-zinc-900 bg-zinc-950 rounded-b-2xl">
-                  <div className="flex items-center gap-3">
-                     <div className="w-2 h-2 bg-indigo-500 rounded-full" />
-                     <span className="text-[10px] font-bold text-zinc-600 uppercase tracking-tighter">Proof Generation Status: Idle</span>
-                  </div>
-                </div>
-             </div>
-          </aside>
-        </div>
+                    </div>
+                 </div>
+              </aside>
+            </div>
+          </>
+        )}
       </div>
     </main>
   );

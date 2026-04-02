@@ -1,45 +1,102 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { WalletState } from '../types/nft';
+import { WalletAdapter } from '../types/wallet';
 
-// Simple mock for wallet interaction - normally uses window.midnight
+// Helper to provide the Lace + Seed fallback logic
 export function useWallet() {
-  const [wallet, setWallet] = useState<WalletState>({
-    address: null,
-    isConnected: false,
-  });
+  const [address, setAddress] = useState<string | null>(null);
+  const [isConnected, setIsConnected] = useState(false);
+  const [walletType, setWalletType] = useState<'lace' | 'seed' | null>(null);
+  const [isConnecting, setIsConnecting] = useState(false);
   const [isClient, setIsClient] = useState(false);
 
   useEffect(() => {
     setIsClient(true);
-    // Check if wallet was connected in current session store
-    const stored = localStorage.getItem('midnight_wallet_address');
-    if (stored) {
-      setWallet({ address: stored, isConnected: true });
+    const storedAddr = localStorage.getItem('midnight_last_wallet_address');
+    if (storedAddr) {
+      setAddress(storedAddr);
+      setIsConnected(true);
+      setWalletType(localStorage.getItem('midnight_last_wallet_type') as any);
     }
   }, []);
 
-  const connect = useCallback(async () => {
-    // Hardcoded seed provided by user for simulation
-    const hardcodedSeed = '57bb166cb6bbf3a6cb5e93a26043e3e2d3c830b63b85286fe97619456a2a23f2';
-    // Using a portion of the seed as the mock address for visual feedback in the UI
-    const mockAddress = `mn_addr_preprod1_${hardcodedSeed.slice(0, 32)}`;
-    
-    setWallet({ address: mockAddress, isConnected: true });
-    localStorage.setItem('midnight_wallet_address', mockAddress);
-    localStorage.setItem('midnight_wallet_seed', hardcodedSeed);
+  const connectLace = useCallback(async () => {
+    setIsConnecting(true);
+    try {
+      // Robust discovery: Poll for window.midnight for up to 2 seconds
+      let lace = (window as any).midnight?.mnLace;
+      if (!lace) {
+        for (let i = 0; i < 20; i++) {
+          await new Promise(r => setTimeout(r, 100));
+          lace = (window as any).midnight?.mnLace;
+          if (lace) break;
+        }
+      }
+
+      if (!lace) {
+        throw new Error("Lace Wallet not detected. Ensure the extension is installed and set to Preprod network.");
+      }
+      
+      const api = await lace.enable();
+      const state = await api.state();
+      const addr = state.address;
+      
+      setAddress(addr);
+      setIsConnected(true);
+      setWalletType('lace');
+      localStorage.setItem('midnight_last_wallet_address', addr);
+      localStorage.setItem('midnight_last_wallet_type', 'lace');
+      return true;
+    } catch (e: any) {
+      console.error("Lace connection failed", e);
+      throw e;
+    } finally {
+      setIsConnecting(false);
+    }
+  }, []);
+
+  const connectSeed = useCallback(async (seed: string) => {
+    setIsConnecting(true);
+    try {
+      // In seed mode, we simulate the address from the seed for the UI
+      // The actual Midnight.js initialization happens on the server/backend in our CLI-bridge pattern
+      const mockAddr = `mn_seed_${seed.slice(0, 12)}...`;
+      
+      setAddress(mockAddr);
+      setIsConnected(true);
+      setWalletType('seed');
+      
+      // We persist the address for the session, but NOT the seed
+      localStorage.setItem('midnight_last_wallet_address', mockAddr);
+      localStorage.setItem('midnight_last_wallet_type', 'seed');
+      
+      // We keep the seed in memory (or temporary session storage if user allows, but here we keep it simple)
+      (window as any)._midnight_seed = seed;
+      
+      return true;
+    } finally {
+      setIsConnecting(false);
+    }
   }, []);
 
   const disconnect = useCallback(() => {
-    setWallet({ address: null, isConnected: false });
-    localStorage.removeItem('midnight_wallet_address');
+    setAddress(null);
+    setIsConnected(false);
+    setWalletType(null);
+    localStorage.removeItem('midnight_last_wallet_address');
+    localStorage.removeItem('midnight_last_wallet_type');
+    delete (window as any)._midnight_seed;
   }, []);
 
   return {
-    ...wallet,
-    connect,
-    disconnect,
+    address,
+    isConnected,
+    walletType,
+    isConnecting,
     isClient,
+    connectLace,
+    connectSeed,
+    disconnect
   };
 }
