@@ -10,14 +10,21 @@ interface MintFormProps {
 }
 
 export default function MintForm({ onMint, isLoading, addLog }: MintFormProps) {
-  const [metadata, setMetadata] = useState('{\n  "name": "Midnight Artifact",\n  "description": "Minted via UI with ZK-privacy",\n  "power": 100\n}');
+  const [name, setName] = useState('Midnight Artifact');
+  const [description, setDescription] = useState('Minted via UI with ZK-privacy');
+  const [imageUrl, setImageUrl] = useState('/nft-sample.png');
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     try {
       addLog("Starting mint process...");
-      const JSONMetadata = JSON.parse(metadata);
-      addLog(`Metadata validated: ${JSONMetadata.name}`);
+      const metadata = JSON.stringify({
+        name,
+        description,
+        image: imageUrl,
+        mintedAt: new Date().toISOString()
+      });
+      addLog(`Metadata validated: ${name}`);
       const res = await onMint(metadata);
       addLog(`Minting success! Token ID: ${res.tokenId}`);
     } catch (e: any) {
@@ -37,27 +44,53 @@ export default function MintForm({ onMint, isLoading, addLog }: MintFormProps) {
         </div>
       </div>
 
-      <form onSubmit={handleSubmit} className="space-y-5">
+      <form onSubmit={handleSubmit} className="space-y-4">
         <div>
-          <label className="block text-sm font-medium text-zinc-400 mb-2">Metadata (JSON format)</label>
+          <label className="block text-[10px] uppercase font-bold tracking-widest text-zinc-500 mb-1.5">Asset Name</label>
+          <input
+            type="text"
+            value={name}
+            onChange={(e) => setName(e.target.value)}
+            className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-sm text-zinc-100 focus:outline-none focus:ring-1 focus:ring-indigo-600 transition-all font-medium"
+          />
+        </div>
+        
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="block text-[10px] uppercase font-bold tracking-widest text-zinc-500 mb-1.5">Image URL</label>
+            <input
+              type="text"
+              value={imageUrl}
+              onChange={(e) => setImageUrl(e.target.value)}
+              className="w-full bg-zinc-900 border border-zinc-800 rounded-xl px-4 py-2.5 text-xs text-zinc-300 font-mono focus:outline-none focus:ring-1 focus:ring-indigo-600 transition-all"
+            />
+          </div>
+          <div className="bg-zinc-900/50 border border-zinc-800/50 rounded-xl overflow-hidden h-[45px] flex items-center justify-center">
+            {imageUrl && <img src={imageUrl} alt="preview" className="h-full w-full object-cover opacity-50" />}
+          </div>
+        </div>
+
+        <div>
+          <label className="block text-[10px] uppercase font-bold tracking-widest text-zinc-500 mb-1.5">Description (Private)</label>
           <textarea
-            value={metadata}
-            onChange={(e) => setMetadata(e.target.value)}
-            className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-4 font-mono text-xs text-zinc-300 focus:outline-none focus:ring-2 focus:ring-indigo-600 focus:border-transparent min-h-[160px] resize-none"
+            value={description}
+            onChange={(e) => setDescription(e.target.value)}
+            className="w-full bg-zinc-900 border border-zinc-800 rounded-xl p-4 text-xs text-zinc-300 focus:outline-none focus:ring-1 focus:ring-indigo-600 min-h-[80px] resize-none"
             spellCheck="false"
           />
         </div>
+
         <button
           type="submit"
           disabled={isLoading}
-          className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 focus:ring-2 focus:ring-indigo-600/30 text-white font-semibold py-3.5 px-6 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-600/10"
+          className="w-full flex items-center justify-center gap-2 bg-indigo-600 hover:bg-indigo-500 focus:ring-2 focus:ring-indigo-600/30 text-white font-semibold py-3.5 px-6 rounded-xl transition-all disabled:opacity-50 disabled:cursor-not-allowed shadow-lg shadow-indigo-600/10 active:scale-95"
         >
           {isLoading ? (
             <div className="w-5 h-5 border-2 border-white/20 border-t-white rounded-full animate-spin" />
           ) : (
-            <Send className="w-5 h-5" />
+            <Send className="w-5 h-5 transition-transform group-hover:translate-x-1 group-hover:-translate-y-1" />
           )}
-          {isLoading ? "Generating ZK Proof..." : "Create New NFT"}
+          {isLoading ? "Generating ZK Proof..." : "Mint Private NFT"}
         </button>
       </form>
     </div>
