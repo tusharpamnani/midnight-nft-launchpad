@@ -2,19 +2,30 @@
   "ownedTokens": {
     "1": {
       "tokenId": "1",
-      "metadataHash": "c0ca139506601f92f569a4b98d48795441db5f58ba0ad15964058e2f645ca11b",
-      "metadata": "{\"name\": \"Mystic Sword\", \"color\": \"blue\"}"
-    },
-    "2": {
-      "tokenId": "2",
-      "metadataHash": "fbae86a7f928809d0b2f65a4200658555f5ba380e890f3758200c406ca2ab7b4",
-      "metadata": "{\"name\": \"Final Test\", \"id\": 789}"
-    },
-    "3": {
-      "tokenId": "3",
-      "metadataHash": "a50698d9fb577ca4b6c86178448ca27fa911113a323ee2900a22c3ce78c04858",
-      "metadata": "{\n  \"name\": \"Midnight Artifact #007\",\n  \"description\": \"Minted via UI with ZK-privacy\",\n  \"power\": 10\n}",
-      "txId": "004cd3c8c21a6eec1b46345f19fae84b31e71113fb96322b4c3ac4d9ac028a7db7"
+      "metadataHash": "d54c9d7a6b537ed928c6ee108a4837bafc469b3012fe7dcea071ba14d42321fa",
+      "metadata": "{\"name\":\"Midnight Artifact\",\"description\":\"Minted via UI with ZK-privacy\",\"image\":\"/nft-sample.png\",\"mintedAt\":\"2026-04-02T22:05:24.642Z\"}",
+      "txId": "006b5ab63e63f8239a8f7b63e34f60cc91399b55f9c1103424bba867239907ac9c",
+      "collectionAddress": "bcee0d3b4b4c98ff01c7373799789888be08cf2857ddee2973e0c36b92a03c11"
     }
-  }
+  },
+  "collections": [
+    {
+      "id": "83423369-f6aa-42a3-9f0c-c2c80a85632c",
+      "name": "test",
+      "description": "test",
+      "maxSupply": 100,
+      "contractAddress": "90e5563af5f2bdde92ea462710939ffc476adf646a836f2444c1f2d0daf082c8",
+      "creatorAddress": "mn_addr_preprod16t47na8kptxkf9tsqj6f39hcru6whylchn7z96vr6zll0vcd8aaskgmm5n",
+      "createdAt": "2026-04-02T21:52:26.976Z"
+    },
+    {
+      "id": "e0e7b886-3e48-46d9-8972-531a913f0b3e",
+      "name": "ter",
+      "description": "ter",
+      "maxSupply": 100,
+      "contractAddress": "bcee0d3b4b4c98ff01c7373799789888be08cf2857ddee2973e0c36b92a03c11",
+      "creatorAddress": "mn_addr_preprod16t47na8kptxkf9tsqj6f39hcru6whylchn7z96vr6zll0vcd8aaskgmm5n",
+      "createdAt": "2026-04-02T22:04:56.796Z"
+    }
+  ]
 }

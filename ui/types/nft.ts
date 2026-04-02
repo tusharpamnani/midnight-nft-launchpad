@@ -11,6 +11,7 @@ export interface OwnedNFT {
   metadataHash: string;
   mintedAt: string;
   txId?: string;
+  collectionAddress?: string;
 }
 
 export interface DeploymentInfo {

@@ -133,6 +133,7 @@ export async function createWallet(seed: string) {
 
 export async function createProviders(
   walletCtx: Awaited<ReturnType<typeof createWallet>>,
+  customZkPath?: string
 ) {
   const privateStatePassword = process.env.PRIVATE_STATE_PASSWORD?.trim();
   if (!privateStatePassword) {
@@ -167,7 +168,8 @@ export async function createProviders(
       walletCtx.wallet.submitTransaction(tx),
   };
 
-  const zkConfigProvider = new NodeZkConfigProvider(zkConfigPath);
+  const finalZkPath = customZkPath || zkConfigPath;
+  const zkConfigProvider = new NodeZkConfigProvider(finalZkPath);
   const accountId = walletCtx.unshieldedKeystore.getBech32Address().toString();
 
   return {

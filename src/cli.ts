@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import * as fs from 'node:fs';
 import { deploy } from './deploy.js';
 import { mint } from './mint.js';
@@ -56,6 +57,27 @@ Commands:
         const metadata = args.slice(1).join(' ');
         if (!metadata) throw new Error("Metadata is required");
         await mint(deployment.seed, deployment.contractAddress, metadata);
+        break;
+      }
+
+      case 'create-collection': {
+        const deployment = getDeployment();
+        const name = args[1];
+        const description = args[2];
+        const maxSupply = parseInt(args[3]);
+        if (!name || !description || isNaN(maxSupply)) throw new Error("usage: create-collection <name> <description> <maxSupply>");
+        const { createCollection } = await import('./createCollection.js');
+        await createCollection(deployment.seed, name, description, maxSupply);
+        break;
+      }
+
+      case 'mint-from-collection': {
+        const deployment = getDeployment();
+        const address = args[1];
+        const metadata = args.slice(2).join(' ');
+        if (!address || !metadata) throw new Error("usage: mint-from-collection <address> <metadata>");
+        const { mintFromCollection } = await import('./mintFromCollection.js');
+        await mintFromCollection(deployment.seed, address, metadata);
         break;
       }
 

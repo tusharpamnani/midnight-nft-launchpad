@@ -1,9 +1,12 @@
 "use server";
 
+import { config } from 'dotenv';
+import * as path from "path";
 import { exec } from "child_process";
 import { promisify } from "util";
-import * as path from "path";
 import * as fs from "fs";
+
+config({ path: path.resolve(process.cwd(), "..", ".env") });
 
 const execAsync = promisify(exec);
 
@@ -41,6 +44,22 @@ export async function fetchOwnedNFTs() {
     return Object.values(state.ownedTokens || {});
   }
   return [];
+}
+
+export async function fetchCollections() {
+  if (fs.existsSync(STATE_FILE)) {
+    const state = JSON.parse(fs.readFileSync(STATE_FILE, 'utf-8'));
+    return state.collections || [];
+  }
+  return [];
+}
+
+export async function actionCreateCollection(name: string, description: string, maxSupply: number) {
+  return await runCliAction("create-collection", name, description, maxSupply.toString());
+}
+
+export async function actionMintFromCollection(collectionAddress: string, metadata: string) {
+  return await runCliAction("mint-from-collection", collectionAddress, metadata);
 }
 
 export async function getDeployment() {
