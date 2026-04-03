@@ -1,7 +1,7 @@
 'use client';
 
 import { Collection } from '../hooks/useLaunchpad';
-import { Rocket, Box, Database, ExternalLink, Calendar, User, Clock, CheckCircle } from 'lucide-react';
+import { Box, Database, CheckCircle } from 'lucide-react';
 
 interface CollectionListProps {
   collections: Collection[];
@@ -12,69 +12,75 @@ interface CollectionListProps {
 export default function CollectionList({ collections, onSelect, selectedAddress }: CollectionListProps) {
   if (collections.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 px-8 bg-zinc-950/20 border border-dashed border-zinc-800 rounded-3xl text-center backdrop-blur-sm grayscale opacity-30 select-none">
-        <Database className="w-16 h-16 text-zinc-600 mb-6 group-hover:rotate-12 transition-transform duration-500" />
-        <h3 className="text-xl font-black font-display text-zinc-400 uppercase tracking-widest">No Active Collections</h3>
-        <p className="max-w-xs mx-auto mt-2 text-xs font-bold text-zinc-600 leading-tight">Launch your first private NFT factory to see it here.</p>
+      <div className="flex flex-col items-center justify-center py-20 border border-dashed border-white/[0.04] text-center">
+        <Database className="w-8 h-8 text-zinc-800 mb-4" />
+        <p className="text-[10px] font-mono tracking-[0.2em] text-zinc-700 uppercase">No factories deployed</p>
+        <p className="text-[10px] font-mono text-zinc-800 mt-1">Deploy below to get started</p>
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-20">
-      {collections.map((col) => (
-        <button
-          key={col.contractAddress}
-          onClick={() => onSelect(col.contractAddress)}
-          className={`flex flex-col text-left group relative bg-zinc-900/30 border p-8 rounded-3xl transition-all duration-300 active:scale-[0.98] ${
-            selectedAddress === col.contractAddress 
-            ? 'border-indigo-600/50 bg-indigo-600/5 shadow-2xl shadow-indigo-600/10' 
-            : 'border-zinc-800/80 hover:border-zinc-700 hover:bg-zinc-900/50 hover:shadow-2xl hover:shadow-black/50'
-          }`}
-        >
-          {selectedAddress === col.contractAddress && (
-            <div className="absolute top-4 right-4 animate-in zoom-in-50 duration-300">
-               <div className="bg-green-500 p-1 rounded-full"><CheckCircle className="w-3 h-3 text-zinc-950" /></div>
-            </div>
-          )}
+    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+      {collections.map((col) => {
+        const isSelected = selectedAddress === col.contractAddress;
 
-          <div className="flex-1 space-y-4">
-             <div className="flex items-center gap-3">
-                <div className="p-3 bg-zinc-950 border border-zinc-900 rounded-xl group-hover:scale-110 transition-transform">
-                  <Box className="w-5 h-5 text-indigo-400" />
+        return (
+          <button
+            key={col.contractAddress}
+            onClick={() => onSelect(col.contractAddress)}
+            className={`group relative text-left p-6 border transition-all duration-200 active:scale-[0.99] ${
+              isSelected
+                ? 'border-violet-500/30 bg-violet-500/[0.03]'
+                : 'border-white/[0.05] bg-white/[0.01] hover:border-white/10 hover:bg-white/[0.025]'
+            }`}
+          >
+            {/* Corner accents — only on selected */}
+            {isSelected && (
+              <>
+                <div className="absolute top-0 left-0 w-3 h-3 border-t border-l border-violet-500/50" />
+                <div className="absolute top-0 right-0 w-3 h-3 border-t border-r border-violet-500/50" />
+                <div className="absolute bottom-0 left-0 w-3 h-3 border-b border-l border-violet-500/50" />
+                <div className="absolute bottom-0 right-0 w-3 h-3 border-b border-r border-violet-500/50" />
+              </>
+            )}
+
+            <div className="space-y-4">
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-center gap-3 min-w-0">
+                  <div className={`w-8 h-8 border flex items-center justify-center shrink-0 transition-colors ${
+                    isSelected ? 'border-violet-500/30 bg-violet-500/10' : 'border-white/[0.06] bg-white/[0.02]'
+                  }`}>
+                    <Box className={`w-3.5 h-3.5 transition-colors ${isSelected ? 'text-violet-400' : 'text-zinc-600 group-hover:text-zinc-400'}`} />
+                  </div>
+                  <h4 className="text-sm font-bold font-mono text-white truncate">{col.name}</h4>
                 </div>
-                <h4 className="text-xl font-bold font-display text-white truncate max-w-[240px]">{col.name}</h4>
-             </div>
-             
-             <p className="text-xs text-zinc-500 leading-relaxed min-h-[48px] line-clamp-2">
+                {isSelected && (
+                  <div className="shrink-0">
+                    <CheckCircle className="w-4 h-4 text-emerald-400" />
+                  </div>
+                )}
+              </div>
+
+              <p className="text-[11px] text-zinc-600 leading-relaxed line-clamp-2 font-mono">
                 {col.description}
-             </p>
+              </p>
 
-             <div className="grid grid-cols-2 gap-3 pt-4 border-t border-zinc-800/50">
-                <div className="flex flex-col">
-                   <span className="text-[9px] uppercase font-bold text-zinc-600 tracking-widest">Supply Cap</span>
-                   <span className="text-lg font-black text-white font-mono">{col.maxSupply || (col as any).supply || '—'}</span>
+              <div className="pt-4 border-t border-white/[0.04] flex items-end justify-between">
+                <div className="space-y-1">
+                  <span className="text-[8px] tracking-[0.2em] font-mono text-zinc-700 uppercase">Supply Cap</span>
+                  <div className="text-2xl font-black font-mono text-white leading-none">
+                    {col.maxSupply || (col as any).supply || '∞'}
+                  </div>
                 </div>
-                <div className="flex flex-col">
-                   <span className="text-[9px] uppercase font-bold text-zinc-600 tracking-widest">Creator</span>
-                   <span className="text-xs font-mono text-indigo-400 block break-all truncate">
-                      {col.creatorAddress ? `${col.creatorAddress.slice(0, 16)}...` : 'System'}
-                   </span>
-                </div>
-             </div>
-          </div>
-
-          <div className="mt-8 flex items-center justify-between">
-             <span className="text-[10px] font-bold text-zinc-600 flex items-center gap-1.5 uppercase tracking-tighter">
-                <Clock className="w-3 h-3 text-zinc-800" />
-                Launchpad Node
-             </span>
-             <code className="text-[10px] bg-zinc-950 px-2 py-1 rounded-md border border-zinc-900 font-mono text-zinc-600 truncate max-w-[120px]">
-                {col.contractAddress.slice(0, 12)}...
-             </code>
-          </div>
-        </button>
-      ))}
+                <code className="text-[9px] font-mono text-zinc-700 block">
+                  {col.contractAddress.slice(0, 10)}…
+                </code>
+              </div>
+            </div>
+          </button>
+        );
+      })}
     </div>
   );
 }

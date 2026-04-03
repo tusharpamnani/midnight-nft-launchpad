@@ -7,7 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "compile-contracts": "compact compile contracts/contract.compact contracts/managed/contract"
+    "compile-contracts": "compact compile contracts/contract.compact contracts/managed/contract && compact compile contracts/collection.compact contracts/managed/collection"
   },
   "dependencies": {
     "@midnight-ntwrk/compact-runtime": "0.15.0",
