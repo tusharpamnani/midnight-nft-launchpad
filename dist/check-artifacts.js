@@ -2,11 +2,11 @@ import * as fs from 'node:fs';
 import * as path from 'node:path';
 import { fileURLToPath } from 'node:url';
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-const contractSourcePath = path.resolve(__dirname, '..', 'contracts', 'hello-world.compact');
-const generatedContractPath = path.resolve(__dirname, '..', 'contracts', 'managed', 'hello-world', 'contract', 'index.js');
+const contractSourcePath = path.resolve(__dirname, '..', 'contracts', 'contract.compact');
+const generatedContractPath = path.resolve(__dirname, '..', 'contracts', 'managed', 'contract', 'contract', 'index.js');
 export function ensureCompiledArtifacts() {
     if (!fs.existsSync(contractSourcePath)) {
-        throw new Error('Missing contracts/hello-world.compact. Restore the contract source before compiling.');
+        throw new Error('Missing contracts/contract.compact. Restore the contract source before compiling.');
     }
     if (!fs.existsSync(generatedContractPath)) {
         throw new Error('Missing compiled contract artifacts. Run `npm run compile` before `npm run build`, `npm run deploy`, or `npm run cli`.');

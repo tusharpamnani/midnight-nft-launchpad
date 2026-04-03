@@ -32,10 +32,10 @@ export async function createCollection(
   const CollectionCtor = collectionModule.Contract as any;
   const compiledCollection = CompiledContract.make('collection', CollectionCtor).pipe(
     CompiledContract.withWitnesses({
-      callerAddress: (context: any) => [context.privateState, callerAddressBytes]
+      callerAddress: (context: any) => [context.privateState as never, callerAddressBytes]
     }),
     CompiledContract.withCompiledFileAssets(collectionZkPath),
-  );
+  ) as any;
 
   console.log(`Deploying collection "${name}"...`);
   

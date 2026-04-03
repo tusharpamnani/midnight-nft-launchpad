@@ -6,6 +6,13 @@
       "metadata": "{\"name\":\"Midnight Artifact\",\"description\":\"Minted via UI with ZK-privacy\",\"image\":\"/nft-sample.png\",\"mintedAt\":\"2026-04-02T22:05:24.642Z\"}",
       "txId": "006b5ab63e63f8239a8f7b63e34f60cc91399b55f9c1103424bba867239907ac9c",
       "collectionAddress": "bcee0d3b4b4c98ff01c7373799789888be08cf2857ddee2973e0c36b92a03c11"
+    },
+    "2": {
+      "tokenId": "2",
+      "metadataHash": "2e66bfc7d9d921dc66b3ee9f50227f6a051975d4be830cee93980d2edcb7a5ba",
+      "metadata": "{\"name\":\"Night Token\",\"description\":\"Midnight Introducing NIGHT token, a blog\",\"image\":\"/image.png\",\"mintedAt\":\"2026-04-03T11:49:20.179Z\"}",
+      "txId": "00fa0212a01639a39d28f51e2a508ab7430069b915040ccd185d3fb5ec5cdc5cd9",
+      "collectionAddress": "bcee0d3b4b4c98ff01c7373799789888be08cf2857ddee2973e0c36b92a03c11"
     }
   },
   "collections": [

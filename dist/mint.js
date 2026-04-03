@@ -27,7 +27,7 @@ export async function mint(seed, contractAddress, metadata) {
     console.log(`✅ Minted successfully!`);
     console.log(`Transaction: ${tx.public.txId}`);
     console.log(`Token ID: ${tokenIdToMint}`);
-    addOwnedToken(tokenIdToMint, toHex(metadataHashBytes), metadata);
+    addOwnedToken(tokenIdToMint, toHex(metadataHashBytes), metadata, tx.public.txId);
     console.log(`Saved token #${tokenIdToMint} to local state.`);
     await walletCtx.wallet.stop();
 }

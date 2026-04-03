@@ -80,7 +80,7 @@ export async function createWallet(seed) {
     await wallet.start(shieldedSecretKeys, dustSecretKey);
     return { seed, wallet, shieldedSecretKeys, dustSecretKey, unshieldedKeystore };
 }
-export async function createProviders(walletCtx) {
+export async function createProviders(walletCtx, customZkPath) {
     const privateStatePassword = process.env.PRIVATE_STATE_PASSWORD?.trim();
     if (!privateStatePassword) {
         throw new Error('Missing PRIVATE_STATE_PASSWORD. This repo uses the official encrypted Level private state provider, which requires a strong local encryption password even though the high-level hello-world docs do not mention it.\n' +
@@ -100,7 +100,8 @@ export async function createProviders(walletCtx) {
         },
         submitTx: (tx) => walletCtx.wallet.submitTransaction(tx),
     };
-    const zkConfigProvider = new NodeZkConfigProvider(zkConfigPath);
+    const finalZkPath = customZkPath || zkConfigPath;
+    const zkConfigProvider = new NodeZkConfigProvider(finalZkPath);
     const accountId = walletCtx.unshieldedKeystore.getBech32Address().toString();
     return {
         privateStateProvider: levelPrivateStateProvider({

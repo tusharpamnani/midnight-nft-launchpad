@@ -29,11 +29,13 @@ Usage:
   npm run cli -- <command> [args]
 
 Commands:
-  deploy                    Deploy the contract
-  mint <metadata>           Mint a new NFT with metadata (string or JSON)
-  transfer <id> <address>   Transfer NFT <id> to recipient <address>
-  balance                   Show owned NFT IDs from local state
-  verify <id>               Verify ownership of NFT <id> on-chain
+  deploy                        Deploy the base contract
+  create-collection <name> <desc> <cap>  Create a new collection
+  mint <metadata>               Mint a new NFT (Base Contract)
+  mint-from-collection <addr> <meta>    Mint from a specific collection
+  transfer <id> <address>       Transfer NFT <id> to recipient <address>
+  balance                       Show owned NFT IDs from local state
+  verify <id>                   Verify ownership of NFT <id> on-chain
     `);
     process.exit(0);
   }

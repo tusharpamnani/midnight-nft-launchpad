@@ -58,7 +58,7 @@ export const NFTContractModule = await nftModulePromise;
 
 const NFTContractCtor =
   NFTContractModule.Contract as unknown as new (
-    witnesses: Record<string, never>,
+    witnesses: any,
   ) => NFTContract;
 
 export function getCompiledContract(walletAddressBytes: Uint8Array) {
@@ -67,10 +67,10 @@ export function getCompiledContract(walletAddressBytes: Uint8Array) {
     NFTContractCtor,
   ).pipe(
     CompiledContract.withWitnesses({
-      callerAddress: (context: any) => [context.privateState, walletAddressBytes]
+      callerAddress: (context: any) => [context.privateState as never, walletAddressBytes]
     }),
     CompiledContract.withCompiledFileAssets(zkConfigPath),
-  );
+  ) as any;
 }
 
 export function deriveKeys(seed: string) {
