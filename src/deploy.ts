@@ -1,6 +1,12 @@
 import * as fs from 'node:fs';
+import crypto from 'node:crypto';
+
 import { deployContract } from '@midnight-ntwrk/midnight-js-contracts';
-import { createWallet, createProviders, getCompiledContract } from './utils.js';
+import { 
+  createWallet, 
+  createProviders, 
+  getCompiledNFTContract 
+} from './utils.js';
 
 export async function deploy(seed: string) {
   console.log('Connecting and syncing wallet...');
@@ -10,11 +16,15 @@ export async function deploy(seed: string) {
   console.log('Setting up providers...');
   const providers = await createProviders(walletCtx);
 
-  console.log('Deploying contract (this may take 30-60 seconds)...');
+  const walletAddressString = walletCtx.unshieldedKeystore.getBech32Address().toString();
+  const callerAddressBytes = crypto.createHash('sha256').update(walletAddressString).digest();
+
+  console.log('Deploying registry contract (this may take 30-60 seconds)...');
   const deployed = await deployContract(providers, {
-    compiledContract: getCompiledContract(new Uint8Array(32)),
+    compiledContract: await getCompiledNFTContract('contract', callerAddressBytes),
     args: [],
   });
+
 
   const contractAddress = deployed.deployTxData.public.contractAddress;
   console.log('✅ Contract deployed successfully!');

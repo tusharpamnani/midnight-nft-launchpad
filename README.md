@@ -12,6 +12,19 @@ Unlike standard NFTs on public chains, Midnight NFTs store their metadata and ow
 - **Circuit-Enforced Caps**: Supply limits are enforced directly within the ZK circuits, ensuring immutable scarcity.
 - **Global Registry**: A synchronized local state keeps track of all deployed collections and minted tokens.
 
+## 🛡️ Shielded vs. Unshielded NFTs
+
+This launchpad implements **Shielded NFTs**, which differ fundamentally from standard (unshielded) implementations like OpenZeppelin's ERC-721:
+
+| Feature | **Shielded (This Project)** | **Unshielded (Standard)** |
+| :--- | :--- | :--- |
+| **Visibility** | **Private**: Only owner sees their NFTs. | **Public**: Everyone sees all owners. |
+| **Ownership** | Hidden (stored as Commitment hash). | Transparent (stored as Address). |
+| **Metadata** | Hidden (stored as local hash). | Transparent (stored as URI/Metadata). |
+| **Verification** | Proof-based (ZK circuits). | Ledger-based (Indexers). |
+
+In this project, the **Zero-Knowledge** model ensures that while a token is "on the chain," its identity and ownership are only "revealed" to the owner themselves, or when the owner generates a specific ZK proof to verify their claim.
+
 ## 🚀 Getting Started
 
 ### 1. Prerequisites

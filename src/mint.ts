@@ -1,6 +1,12 @@
 import crypto from 'node:crypto';
 import { findDeployedContract } from '@midnight-ntwrk/midnight-js-contracts';
-import { createWallet, createProviders, getCompiledContract, NFTContractModule } from './utils.js';
+import { 
+  createWallet, 
+  createProviders, 
+  getCompiledNFTContract, 
+  getContractModule 
+} from './utils.js';
+
 import { addOwnedToken } from './state.js';
 import { toHex } from '@midnight-ntwrk/midnight-js-utils';
 
@@ -17,7 +23,7 @@ export async function mint(seed: string, contractAddress: string, metadata: stri
 
   const contract = await findDeployedContract(providers, {
     contractAddress,
-    compiledContract: getCompiledContract(callerAddressBytes),
+    compiledContract: await getCompiledNFTContract('contract', callerAddressBytes),
   });
 
   const metadataHashBytes = crypto.createHash('sha256').update(metadata).digest();
@@ -27,7 +33,9 @@ export async function mint(seed: string, contractAddress: string, metadata: stri
   
   // Read current token ID before mint
   const state = await providers.publicDataProvider.queryContractState(contractAddress);
-  const ledgerState = NFTContractModule.ledger(state!.data);
+  const contractModule = await getContractModule('contract');
+  const ledgerState = contractModule.ledger(state!.data);
+
   const tokenIdToMint = ledgerState.nextTokenId.toString();
 
   console.log('Validating proof and submitting transaction (this may take 20-30 seconds)...');

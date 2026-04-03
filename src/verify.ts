@@ -1,6 +1,10 @@
 import crypto from 'node:crypto';
 import { findDeployedContract } from '@midnight-ntwrk/midnight-js-contracts';
-import { createWallet, createProviders, getCompiledContract, NFTContractModule } from './utils.js';
+import { 
+  createWallet, 
+  createProviders, 
+  getCompiledNFTContract 
+} from './utils.js';
 import { loadState } from './state.js';
 import { toHex } from '@midnight-ntwrk/midnight-js-utils';
 
@@ -23,7 +27,7 @@ export async function verify(seed: string, contractAddress: string, tokenIdStr: 
 
   const contract = await findDeployedContract(providers, {
     contractAddress,
-    compiledContract: getCompiledContract(callerAddressBytes),
+    compiledContract: await getCompiledNFTContract('contract', callerAddressBytes),
   });
 
   const metadataHashBytes = Buffer.from(tokenState.metadataHash, 'hex');

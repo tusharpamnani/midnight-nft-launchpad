@@ -38,42 +38,48 @@ export const CONFIG = {
 } as const;
 
 const __dirname = path.dirname(fileURLToPath(import.meta.url));
-export const zkConfigPath = path.resolve(
-  __dirname,
-  '..',
-  'contracts',
-  'managed',
-  'contract',
-);
+// Define paths for both contracts
+export const BASE_CONTRACT_PATH = path.resolve(__dirname, '..', 'contracts', 'managed', 'contract');
+export const COLLECTION_CONTRACT_PATH = path.resolve(__dirname, '..', 'contracts', 'managed', 'collection');
 
-type NFTModule = typeof import('../contracts/managed/contract/contract/index.js');
-type NFTContract = CompactContract<undefined>;
+// Default path (Legacy/Base)
+export const zkConfigPath = BASE_CONTRACT_PATH;
 
-const nftModulePromise = (async () => {
-  ensureCompiledArtifacts();
-  return import(pathToFileURL(path.join(zkConfigPath, 'contract', 'index.js')).href) as Promise<NFTModule>;
-})();
+/**
+ * Loads a contract module and constructor dynamically
+ */
+export async function getContractModule(contractName: 'contract' | 'collection' = 'collection'): Promise<any> {
+  const basePath = contractName === 'collection' ? COLLECTION_CONTRACT_PATH : BASE_CONTRACT_PATH;
+  const modulePath = pathToFileURL(path.join(basePath, 'contract', 'index.js')).href;
+  return import(modulePath);
+}
 
-export const NFTContractModule = await nftModulePromise;
+/**
+ * Creates a CompiledContract instance for either the base registry or a specific collection
+ */
+export async function getCompiledNFTContract(
+  contractName: 'contract' | 'collection',
+  walletAddressBytes: Uint8Array
+) {
+  const module = await getContractModule(contractName);
+  const zkPath = contractName === 'collection' ? COLLECTION_CONTRACT_PATH : BASE_CONTRACT_PATH;
 
-const NFTContractCtor =
-  NFTContractModule.Contract as unknown as new (
-    witnesses: any,
-  ) => NFTContract;
-
-export function getCompiledContract(walletAddressBytes: Uint8Array) {
   return CompiledContract.make(
-    'contract',
-    NFTContractCtor,
+    contractName,
+    module.Contract
   ).pipe(
     CompiledContract.withWitnesses({
       callerAddress: (context: any) => [context.privateState as never, walletAddressBytes]
     }),
-    CompiledContract.withCompiledFileAssets(zkConfigPath),
+    CompiledContract.withCompiledFileAssets(zkPath),
   ) as any;
 }
 
+// Exporting a promise that resolves to the Base contract module for compatibility
+export const BaseContractModulePromise = getContractModule('contract');
+
 export function deriveKeys(seed: string) {
+
   const hdWallet = HDWallet.fromSeed(Buffer.from(seed, 'hex'));
   if (hdWallet.type !== 'seedOk') throw new Error('Invalid seed');
 

@@ -15,7 +15,7 @@ export default function Home() {
   const { deployment, deploy, log, addLog } = useContract();
   const { isConnected, isClient, address } = useWallet();
   const [selectedContract, setSelectedContract] = useState<string | null>(null);
-  const { collections, userNfts, createCollection, mint, isLoading, refreshData } = useLaunchpad();
+  const { collections, userNfts, createCollection, mint, transfer, verify, isLoading, refreshData } = useLaunchpad();
 
   useEffect(() => {
     if (selectedContract && deployment?.contractAddress && selectedContract === deployment.contractAddress) {
@@ -221,9 +221,19 @@ export default function Home() {
                       </div>
                       <NFTList
                         nfts={userNfts.filter(n => n.collectionAddress === selectedContract)}
-                        onVerify={async (id) => addLog(`Verifying Token #${id}... [ZK-PROOF-CLIENT-SIDE]`)}
-                        onTransfer={async (id, rec) => addLog(`Initiating Transfer of Token #${id} to ${rec}...`)}
+                        onVerify={async (id) => {
+                          addLog(`Preparing ZK proof to verify ownership of Token #${id}...`);
+                          const res = await verify(selectedContract, id);
+                          if (res.success) addLog(`✅ Ownership verified on-chain via ZK proof! ID #${id} is truly yours.`);
+                        }}
+                        onTransfer={async (id, rec) => {
+                          if (!rec) return;
+                          addLog(`Transferring Token #${id} to ${rec}...`);
+                          const res = await transfer(selectedContract, id, rec);
+                          if (res.success) addLog(`✅ Token #${id} successfully transferred and removed from inventory.`);
+                        }}
                       />
+
                     </section>
                   </div>
                 )}

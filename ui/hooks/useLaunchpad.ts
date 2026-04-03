@@ -65,12 +65,38 @@ export function useLaunchpad() {
     }
   }, [refreshData]);
 
+  const transfer = useCallback(async (collectionAddress: string, tokenId: string, recipient: string) => {
+    setIsLoading(true);
+    try {
+      const { actionTransfer } = await import('../app/actions');
+      const res = await actionTransfer(tokenId, recipient);
+      await refreshData();
+      return res;
+    } finally {
+      setIsLoading(false);
+    }
+  }, [refreshData]);
+
+  const verify = useCallback(async (collectionAddress: string, tokenId: string) => {
+    setIsLoading(true);
+    try {
+      const { actionVerify } = await import('../app/actions');
+      const res = await actionVerify(tokenId);
+      return res;
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
+
   return {
     collections,
     userNfts,
     createCollection,
     mint,
+    transfer,
+    verify,
     isLoading,
     refreshData
   };
+
 }
