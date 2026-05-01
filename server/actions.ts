@@ -1,13 +1,7 @@
 "use server";
 
-import { NextResponse } from "next/server";
-
-const ROOT_DIR = "./..";
-const STATE_FILE = `${ROOT_DIR}/local-state.json`;
-const DEPLOY_FILE = `${ROOT_DIR}/deployment.json`;
-
 // Dynamic imports to prevent bundling Node.js modules
-async function getDeps() {
+const getDeps = async () => {
   const { config } = await import("dotenv");
   const path = await import("path");
   const { exec } = await import("child_process");
@@ -20,11 +14,9 @@ async function getDeps() {
     execAsync: promisify(exec),
     fs,
     path,
-    ROOT_DIR,
-    STATE_FILE,
-    DEPLOY_FILE,
+    ROOT_DIR: path.resolve(process.cwd(), ".."),
   };
-}
+};
 
 async function runCliAction(command: string, ...args: string[]) {
   const { execAsync, ROOT_DIR } = await getDeps();
@@ -45,7 +37,8 @@ async function runCliAction(command: string, ...args: string[]) {
 }
 
 export async function fetchOwnedNFTs() {
-  const { fs, STATE_FILE } = await getDeps();
+  const { fs } = await getDeps();
+  const STATE_FILE = `${ROOT_DIR}/local-state.json`;
   if (fs.existsSync(STATE_FILE)) {
     const state = JSON.parse(fs.readFileSync(STATE_FILE, 'utf-8'));
     return Object.values(state.ownedTokens || {});
@@ -54,7 +47,8 @@ export async function fetchOwnedNFTs() {
 }
 
 export async function fetchCollections() {
-  const { fs, STATE_FILE } = await getDeps();
+  const { fs } = await getDeps();
+  const STATE_FILE = `${ROOT_DIR}/local-state.json`;
   if (fs.existsSync(STATE_FILE)) {
     const state = JSON.parse(fs.readFileSync(STATE_FILE, 'utf-8'));
     return state.collections || [];
@@ -63,9 +57,10 @@ export async function fetchCollections() {
 }
 
 export async function getDeployment() {
-  const { fs, DEPLOY_FILE } = await getDeps();
-  if (fs.existsSync(DEPLOY_FILE)) {
-    return JSON.parse(fs.readFileSync(DEPLOY_FILE, 'utf-8'));
+  const { fs, path } = await getDeps();
+  const deployFile = path.join(ROOT_DIR, 'deployment.json');
+  if (fs.existsSync(deployFile)) {
+    return JSON.parse(fs.readFileSync(deployFile, 'utf-8'));
   }
   return null;
 }

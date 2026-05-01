@@ -3,8 +3,8 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "dev": "next dev",
-    "build": "next build",
+    "dev": "next dev --webpack",
+    "build": "next build --webpack",
     "start": "next start",
     "lint": "next lint",
     "compile-contracts": "compact compile contracts/contract.compact contracts/managed/contract && compact compile contracts/collection.compact contracts/managed/collection"
@@ -13,6 +13,7 @@
     "@midnight-ntwrk/compact-runtime": "0.15.0",
     "@midnight-ntwrk/ledger-v8": "8.0.3",
     "@midnight-ntwrk/midnight-js-contracts": "4.0.2",
+    "@midnight-ntwrk/midnight-js-fetch-zk-config-provider": "^4.0.2",
     "@midnight-ntwrk/midnight-js-http-client-proof-provider": "4.0.2",
     "@midnight-ntwrk/midnight-js-indexer-public-data-provider": "4.0.2",
     "@midnight-ntwrk/midnight-js-level-private-state-provider": "4.0.2",
@@ -27,6 +28,7 @@
     "@midnight-ntwrk/wallet-sdk-shielded": "2.1.0",
     "@midnight-ntwrk/wallet-sdk-unshielded-wallet": "2.1.0",
     "clsx": "^2.1.1",
+    "dotenv": "^17.4.2",
     "lucide-react": "^0.395.0",
     "next": "16.2.2",
     "react": "19.2.4",

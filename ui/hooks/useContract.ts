@@ -1,22 +1,25 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { getDeployment, actionDeploy } from '../app/actions';
 import { DeploymentInfo } from '../types/nft';
 
 export function useContract() {
   const [deployment, setDeployment] = useState<DeploymentInfo | null>(null);
   const [log, setLog] = useState<string[]>([]);
+  const [isDeploying, setIsDeploying] = useState(false);
 
   const fetchDeploymentState = useCallback(async () => {
     try {
-      const info = await getDeployment();
-      if (info) {
-        setDeployment({
-          contractAddress: info.contractAddress,
-          network: 'preprod',
-          deployedAt: info.deployedAt || new Date().toISOString()
-        });
+      const res = await fetch('/api/deployment');
+      if (res.ok) {
+        const info = await res.json();
+        if (info && info.contractAddress) {
+          setDeployment({
+            contractAddress: info.contractAddress,
+            network: 'preprod',
+            deployedAt: info.deployedAt || new Date().toISOString()
+          });
+        }
       }
     } catch (e) {
       console.error(e);
@@ -25,23 +28,34 @@ export function useContract() {
 
   useEffect(() => {
     fetchDeploymentState();
-    const interval = setInterval(fetchDeploymentState, 5000);
-    return () => clearInterval(interval);
   }, [fetchDeploymentState]);
 
   const addLog = useCallback((msg: string) => {
     setLog(prev => [`[${new Date().toLocaleTimeString()}] ${msg}`, ...prev].slice(0, 50));
   }, []);
 
-  const deploy = useCallback(async () => {
-    addLog("Initiating contract deployment via backend CLI...");
+  const deploy = useCallback(async (api: any) => {
+    setIsDeploying(true);
+    addLog('Starting contract deployment from your wallet...');
+
     try {
-      const res = await actionDeploy();
-      if (res.stdout) addLog(res.stdout);
+      addLog('Submitting deployment transaction (may take 30-60s for ZK proof)...');
+
+      // Call the server API to deploy (uses server wallet for now)
+      const res = await fetch('/api/deploy', { method: 'POST' });
+      const result = await res.json();
+
+      if (result.stdout) addLog(result.stdout);
+
       await fetchDeploymentState();
-      addLog(`Deployment complete! ✨`);
+      addLog('Deployment complete! 🎉');
+
+      return deployment?.contractAddress;
     } catch (e: any) {
-      addLog(`Error during deployment: ${e.message}`);
+      addLog(`Error: ${e.message}`);
+      throw e;
+    } finally {
+      setIsDeploying(false);
     }
   }, [addLog, fetchDeploymentState]);
 
@@ -50,5 +64,6 @@ export function useContract() {
     deploy,
     log,
     addLog,
+    isDeploying,
   };
 }

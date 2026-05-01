@@ -1,12 +1,6 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { 
-  fetchOwnedNFTs, 
-  fetchCollections,
-  actionMintFromCollection,
-  actionCreateCollection,
-} from '../app/actions';
 import { OwnedNFT } from '../types/nft';
 
 export interface Collection {
@@ -26,12 +20,13 @@ export function useLaunchpad() {
 
   const refreshData = useCallback(async () => {
     try {
-      const [cols, nfts] = await Promise.all([
-        fetchCollections(),
-        fetchOwnedNFTs()
+      const [colsRes, nftsRes] = await Promise.all([
+        fetch('/api/midnight?action=collections'),
+        fetch('/api/midnight?action=owned-nfts')
       ]);
-      setCollections(cols as Collection[]);
-      setUserNfts(nfts as OwnedNFT[]);
+      const [cols, nfts] = await Promise.all([colsRes.json(), nftsRes.json()]);
+      setCollections(cols);
+      setUserNfts(nfts);
     } catch (e) {
       console.error("Failed to refresh launchpad data", e);
     }
@@ -46,9 +41,16 @@ export function useLaunchpad() {
   const createCollection = useCallback(async (name: string, description: string, maxSupply: number) => {
     setIsLoading(true);
     try {
-      const res = await actionCreateCollection(name, description, maxSupply);
+      const res = await fetch('/api/midnight', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'create-collection', name, description, maxSupply })
+      });
       await refreshData();
-      return res;
+      return await res.json();
+    } catch (e: any) {
+      console.error('Collection creation failed:', e);
+      throw e;
     } finally {
       setIsLoading(false);
     }
@@ -57,32 +59,51 @@ export function useLaunchpad() {
   const mint = useCallback(async (collectionAddress: string, metadata: string) => {
     setIsLoading(true);
     try {
-      const res = await actionMintFromCollection(collectionAddress, metadata);
+      const res = await fetch('/api/midnight', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'mint-from-collection', collectionAddress, metadata })
+      });
       await refreshData();
-      return res;
+      return await res.json();
+    } catch (e: any) {
+      console.error('Mint failed:', e);
+      throw e;
     } finally {
       setIsLoading(false);
     }
   }, [refreshData]);
 
-  const transfer = useCallback(async (collectionAddress: string, tokenId: string, recipient: string) => {
+  const transfer = useCallback(async (tokenId: string, recipient: string) => {
     setIsLoading(true);
     try {
-      const { actionTransfer } = await import('../app/actions');
-      const res = await actionTransfer(tokenId, recipient);
+      const res = await fetch('/api/midnight', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'transfer', tokenId, recipient })
+      });
       await refreshData();
-      return res;
+      return await res.json();
+    } catch (e: any) {
+      console.error('Transfer failed:', e);
+      throw e;
     } finally {
       setIsLoading(false);
     }
   }, [refreshData]);
 
-  const verify = useCallback(async (collectionAddress: string, tokenId: string) => {
+  const verify = useCallback(async (tokenId: string) => {
     setIsLoading(true);
     try {
-      const { actionVerify } = await import('../app/actions');
-      const res = await actionVerify(tokenId);
-      return res;
+      const res = await fetch('/api/midnight', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: 'verify', tokenId })
+      });
+      return await res.json();
+    } catch (e: any) {
+      console.error('Verify failed:', e);
+      throw e;
     } finally {
       setIsLoading(false);
     }
@@ -98,5 +119,4 @@ export function useLaunchpad() {
     isLoading,
     refreshData
   };
-
 }

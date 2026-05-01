@@ -1,81 +1,112 @@
 'use client';
 
-import { useState, useCallback, useEffect } from 'react';
-import { WalletAdapter } from '../types/wallet';
+import { useState, useCallback, useEffect, useRef } from 'react';
 
-// Helper to provide the Lace + Seed fallback logic
+const DETECT_TIMEOUT_MS = 6000;
+const DETECT_INTERVAL_MS = 300;
+
 export function useWallet() {
   const [address, setAddress] = useState<string | null>(null);
   const [isConnected, setIsConnected] = useState(false);
-  const [walletType, setWalletType] = useState<'lace' | 'seed' | null>(null);
+  const [walletType, setWalletType] = useState<'1am' | 'lace' | null>(null);
   const [isConnecting, setIsConnecting] = useState(false);
-  const [isClient, setIsClient] = useState(false);
+  const [walletStatus, setWalletStatus] = useState<'checking' | 'detected' | 'not-found'>('checking');
+  const [api, setApi] = useState<any>(null);
+  
+  // Use a ref to track if we're already connecting (synchronous check)
+  const connectingRef = useRef(false);
+  const mountedRef = useRef(false);
 
   useEffect(() => {
-    setIsClient(true);
-    const storedAddr = localStorage.getItem('midnight_last_wallet_address');
-    if (storedAddr) {
-      setAddress(storedAddr);
-      setIsConnected(true);
-      setWalletType(localStorage.getItem('midnight_last_wallet_type') as any);
-    }
+    mountedRef.current = true;
+    return () => { mountedRef.current = false; };
   }, []);
 
-  const connectLace = useCallback(async () => {
-    setIsConnecting(true);
-    try {
-      // Robust discovery: Poll for window.midnight for up to 2 seconds
-      let lace = (window as any).midnight?.mnLace;
-      if (!lace) {
-        for (let i = 0; i < 20; i++) {
-          await new Promise(r => setTimeout(r, 100));
-          lace = (window as any).midnight?.mnLace;
-          if (lace) break;
+  useEffect(() => {
+    if (connectingRef.current) return; // Already connecting, skip
+    
+    let mounted = true;
+    const startedAt = Date.now();
+
+    const checkWallet = async () => {
+      if (!mounted) return true;
+      
+      const wallet1AM = (window as any).midnight?.['1am'];
+      const walletLace = (window as any).midnight?.mnLace;
+
+      if (wallet1AM || walletLace) {
+        const type = wallet1AM ? '1am' as const : 'lace' as const;
+        if (mounted) {
+          setWalletType(type);
+          setWalletStatus('detected');
+          
+          // Auto-connect only if not already connected and not already connecting
+          if (!isConnected && !connectingRef.current) {
+            connect('preprod').catch(() => {});
+          }
         }
+        return true;
       }
 
-      if (!lace) {
-        throw new Error("Lace Wallet not detected. Ensure the extension is installed and set to Preprod network.");
+      if (Date.now() - startedAt >= DETECT_TIMEOUT_MS) {
+        if (mounted) setWalletStatus('not-found');
+        return true;
       }
-      
-      const api = await lace.enable();
-      const state = await api.state();
-      const addr = state.address;
-      
-      setAddress(addr);
+
+      return false;
+    };
+
+    if (checkWallet()) return () => { mounted = false; };
+
+    const intervalId = setInterval(() => {
+      if (checkWallet()) clearInterval(intervalId);
+    }, DETECT_INTERVAL_MS);
+
+    return () => {
+      mounted = false;
+      clearInterval(intervalId);
+    };
+  }, [isConnected]);
+
+  const connect = useCallback(async (network: string = 'preprod') => {
+    // Synchronous check to prevent concurrent calls
+    if (connectingRef.current) {
+      return;
+    }
+    
+    connectingRef.current = true;
+    setIsConnecting(true);
+    
+    try {
+      let wallet = (window as any).midnight?.['1am'];
+      let type: '1am' | 'lace' = '1am';
+
+      if (!wallet) {
+        wallet = (window as any).midnight?.mnLace;
+        type = 'lace';
+      }
+
+      if (!wallet) {
+        throw new Error('No Midnight wallet detected. Install 1AM or Lace extension.');
+      }
+
+      const connectedApi = await wallet.connect(network);
+      const unshielded = await connectedApi.getUnshieldedAddress();
+
+      setApi(connectedApi);
+      setAddress(unshielded.unshieldedAddress);
       setIsConnected(true);
-      setWalletType('lace');
-      localStorage.setItem('midnight_last_wallet_address', addr);
-      localStorage.setItem('midnight_last_wallet_type', 'lace');
-      return true;
+      setWalletType(type);
+
+      localStorage.setItem('midnight_last_wallet_address', unshielded.unshieldedAddress);
+      localStorage.setItem('midnight_last_wallet_type', type);
+
+      return connectedApi;
     } catch (e: any) {
-      console.error("Lace connection failed", e);
+      console.error('Wallet connection failed', e);
       throw e;
     } finally {
-      setIsConnecting(false);
-    }
-  }, []);
-
-  const connectSeed = useCallback(async (seed: string) => {
-    setIsConnecting(true);
-    try {
-      // In seed mode, we simulate the address from the seed for the UI
-      // The actual Midnight.js initialization happens on the server/backend in our CLI-bridge pattern
-      const mockAddr = `mn_seed_${seed.slice(0, 12)}...`;
-      
-      setAddress(mockAddr);
-      setIsConnected(true);
-      setWalletType('seed');
-      
-      // We persist the address for the session, but NOT the seed
-      localStorage.setItem('midnight_last_wallet_address', mockAddr);
-      localStorage.setItem('midnight_last_wallet_type', 'seed');
-      
-      // We keep the seed in memory (or temporary session storage if user allows, but here we keep it simple)
-      (window as any)._midnight_seed = seed;
-      
-      return true;
-    } finally {
+      connectingRef.current = false;
       setIsConnecting(false);
     }
   }, []);
@@ -84,9 +115,11 @@ export function useWallet() {
     setAddress(null);
     setIsConnected(false);
     setWalletType(null);
+    setApi(null);
+    setWalletStatus('checking');
+    connectingRef.current = false;
     localStorage.removeItem('midnight_last_wallet_address');
     localStorage.removeItem('midnight_last_wallet_type');
-    delete (window as any)._midnight_seed;
   }, []);
 
   return {
@@ -94,9 +127,9 @@ export function useWallet() {
     isConnected,
     walletType,
     isConnecting,
-    isClient,
-    connectLace,
-    connectSeed,
-    disconnect
+    walletStatus,
+    api,
+    connect,
+    disconnect,
   };
 }

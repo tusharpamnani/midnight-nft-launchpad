@@ -9,11 +9,11 @@ import CollectionList from '../components/CollectionList';
 import MintForm from '../components/MintForm';
 import NFTList from '../components/NFTList';
 import { useLaunchpad } from '../hooks/useLaunchpad';
-import { History, Terminal, RefreshCw, ShieldCheck, Lock, PlusCircle, LayoutGrid, Box, Activity } from 'lucide-react';
+import { Terminal, RefreshCw, ShieldCheck, Lock, PlusCircle, LayoutGrid, Box, Rocket } from 'lucide-react';
 
 export default function Home() {
-  const { deployment, deploy, log, addLog } = useContract();
-  const { isConnected, isClient, address } = useWallet();
+  const { deployment, deploy, log, addLog, isDeploying } = useContract();
+  const { isConnected, address, api: walletApi } = useWallet();
   const [selectedContract, setSelectedContract] = useState<string | null>(null);
   const { collections, userNfts, createCollection, mint, transfer, verify, isLoading, refreshData } = useLaunchpad();
 
@@ -22,6 +22,11 @@ export default function Home() {
       setSelectedContract(null);
     }
   }, [selectedContract, deployment]);
+
+  const handleDeploy = async () => {
+    if (!walletApi) return;
+    await deploy(walletApi);
+  };
 
   return (
     <main className="min-h-screen bg-[#080808] text-zinc-100 font-sans relative overflow-x-hidden selection:bg-violet-500/20">
@@ -62,7 +67,7 @@ export default function Home() {
             </div>
           </div>
 
-          <WalletConnect />
+          {/* <WalletConnect /> */}
         </div>
       </nav>
 
@@ -192,12 +197,48 @@ export default function Home() {
                   />
                 </section>
 
-                {/* Launch form (only when no collection selected) */}
-                {!selectedContract && (
+                {/* Deploy base contract (when no deployment exists) */}
+                {!deployment && (
                   <section className="space-y-8">
                     <div className="space-y-1">
-                      <span className="text-[9px] tracking-[0.3em] text-zinc-600 font-mono uppercase">02 / Deploy</span>
-                      <h2 className="text-xl font-bold font-mono text-white tracking-tight">New Factory</h2>
+                      <span className="text-[9px] tracking-[0.3em] text-zinc-600 font-mono uppercase">02 / Protocol</span>
+                      <h2 className="text-xl font-bold font-mono text-white tracking-tight">Deploy Base Contract</h2>
+                    </div>
+                    <div className="relative border border-white/[0.05] bg-white/[0.01] p-8">
+                      <div className="absolute top-0 left-0 w-3 h-3 border-t border-l border-violet-500/30" />
+                      <div className="absolute top-0 right-0 w-3 h-3 border-t border-r border-violet-500/30" />
+                      <div className="space-y-6">
+                        <p className="text-[11px] font-mono text-zinc-500 leading-relaxed">
+                          Deploy the base NFT contract from your wallet. This requires ZK proof generation.
+                        </p>
+                        <button
+                          onClick={handleDeploy}
+                          disabled={isDeploying || !walletApi}
+                          className="w-full flex items-center justify-center gap-3 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-mono text-[11px] tracking-[0.2em] uppercase py-4 transition-all active:scale-[0.99]"
+                        >
+                          {isDeploying ? (
+                            <>
+                              <div className="w-3.5 h-3.5 border border-white/30 border-t-white rounded-full animate-spin" />
+                              Generating ZK Proof...
+                            </>
+                          ) : (
+                            <>
+                              <Rocket className="w-3.5 h-3.5" />
+                              Deploy Contract
+                            </>
+                          )}
+                        </button>
+                      </div>
+                    </div>
+                  </section>
+                )}
+
+                {/* Launch form (only when no collection selected and deployment exists) */}
+                {!selectedContract && deployment && (
+                  <section className="space-y-8">
+                    <div className="space-y-1">
+                      <span className="text-[9px] tracking-[0.3em] text-zinc-600 font-mono uppercase">03 / Factory</span>
+                      <h2 className="text-xl font-bold font-mono text-white tracking-tight">New Collection</h2>
                     </div>
                     <LaunchpadForm onCreate={createCollection} isLoading={isLoading} addLog={addLog} />
                   </section>
@@ -223,13 +264,13 @@ export default function Home() {
                         nfts={userNfts.filter(n => n.collectionAddress === selectedContract)}
                         onVerify={async (id) => {
                           addLog(`Preparing ZK proof to verify ownership of Token #${id}...`);
-                          const res = await verify(selectedContract, id);
+                          const res = await verify(id);
                           if (res.success) addLog(`✅ Ownership verified on-chain via ZK proof! ID #${id} is truly yours.`);
                         }}
                         onTransfer={async (id, rec) => {
                           if (!rec) return;
                           addLog(`Transferring Token #${id} to ${rec}...`);
-                          const res = await transfer(selectedContract, id, rec);
+                          const res = await transfer(id, rec);
                           if (res.success) addLog(`✅ Token #${id} successfully transferred and removed from inventory.`);
                         }}
                       />
