@@ -42,21 +42,21 @@ export default function NFTList({ nfts, onVerify, onTransfer }: NFTListProps) {
 
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-      {nfts.map((nft) => {
+      {nfts.map((nft, idx) => {
         let meta: any = {};
         try { meta = JSON.parse(nft.metadata); }
         catch { meta = { name: `NFT #${nft.id}`, description: nft.metadata }; }
 
         return (
           <div
-            key={nft.id}
+            key={nft.id || nft.txId || `nft-${idx}`}
             className="group relative flex flex-col border border-white/[0.05] bg-white/[0.01] hover:border-white/10 hover:bg-white/[0.02] transition-all duration-200"
           >
-            {/* Corner accents on hover */}
-            <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-violet-500/0 group-hover:border-violet-500/40 transition-colors" />
-            <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-violet-500/0 group-hover:border-violet-500/40 transition-colors" />
-            <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-violet-500/0 group-hover:border-violet-500/40 transition-colors" />
-            <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-violet-500/0 group-hover:border-violet-500/40 transition-colors" />
+             {/* Corner accents on hover */}
+             <div className="absolute top-0 left-0 w-2 h-2 border-t border-l border-[#0000FE]/0 group-hover:border-[#0000FE]/40 transition-colors" />
+             <div className="absolute top-0 right-0 w-2 h-2 border-t border-r border-[#0000FE]/0 group-hover:border-[#0000FE]/40 transition-colors" />
+             <div className="absolute bottom-0 left-0 w-2 h-2 border-b border-l border-[#0000FE]/0 group-hover:border-[#0000FE]/40 transition-colors" />
+             <div className="absolute bottom-0 right-0 w-2 h-2 border-b border-r border-[#0000FE]/0 group-hover:border-[#0000FE]/40 transition-colors" />
 
             {/* Image */}
             {meta.image && (
@@ -108,35 +108,37 @@ export default function NFTList({ nfts, onVerify, onTransfer }: NFTListProps) {
                 <p className="text-[9px] font-mono text-zinc-700 truncate">{nft.metadata}</p>
               </div>
 
-              {/* Explorer link */}
-              {nft.txId && (
-                <a
-                  href={`https://preprod.midnightexplorer.com/tx/0x${nft.txId}`}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="flex items-center gap-1.5 text-[9px] font-mono text-violet-600 hover:text-violet-400 transition-colors uppercase tracking-widest"
-                >
-                  Explorer
-                  <ArrowUpRight className="w-2.5 h-2.5" />
-                </a>
-              )}
+               {/* Explorer link */}
+               {nft.txId && (
+                 <a
+                   href={`https://preprod.midnightexplorer.com/tx/0x${nft.txId}`}
+                   target="_blank"
+                   rel="noopener noreferrer"
+                   className="flex items-center gap-1.5 text-[9px] font-mono hover:text-white transition-colors uppercase tracking-widest"
+                   style={{ color: 'rgba(0,0,254,0.6)' }}
+                 >
+                   Explorer
+                   <ArrowUpRight className="w-2.5 h-2.5" />
+                 </a>
+               )}
 
               {/* Transfer */}
               <div className="pt-2 mt-auto">
                 {selectedNFT === nft.id ? (
                   <div className="space-y-2">
-                    <input
-                      type="text"
-                      placeholder="mn_addr..."
-                      value={recipient}
-                      onChange={(e) => setRecipient(e.target.value)}
-                      className="w-full bg-black/50 border border-white/[0.06] px-3 py-2 text-[10px] font-mono text-zinc-300 placeholder:text-zinc-800 focus:outline-none focus:border-violet-500/30 transition-all"
-                    />
-                    <div className="flex gap-2">
-                      <button
-                        onClick={() => handleTransfer(nft.id)}
-                        className="flex-1 bg-violet-600 hover:bg-violet-500 text-white text-[9px] font-mono tracking-widest uppercase py-2 transition-all"
-                      >
+                     <input
+                       type="text"
+                       placeholder="mn_addr..."
+                       value={recipient}
+                       onChange={(e) => setRecipient(e.target.value)}
+                       className="w-full bg-black/50 border border-white/[0.06] px-3 py-2 text-[10px] font-mono text-zinc-300 placeholder:text-zinc-800 focus:outline-none focus:border-[#0000FE]/30 transition-all"
+                     />
+                     <div className="flex gap-2">
+                       <button
+                         onClick={() => handleTransfer(nft.id)}
+                         className="flex-1 text-white text-[9px] font-mono tracking-widest uppercase py-2 transition-all hover:opacity-90"
+                         style={{ background: '#0000FE' }}
+                       >
                         Transfer
                       </button>
                       <button

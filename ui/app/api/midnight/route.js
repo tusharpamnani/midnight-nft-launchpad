@@ -118,7 +118,7 @@ export async function POST(request) {
       }
 
        case 'add-collection': {
-        const { address, name, description } = params;
+        const { address, name, description, maxSupply } = params;
         let state = { collections: [], ownedTokens: {} };
         if (fs.existsSync(STATE_FILE)) {
           state = JSON.parse(fs.readFileSync(STATE_FILE, 'utf-8'));
@@ -128,11 +128,29 @@ export async function POST(request) {
           id: crypto.randomUUID(),
           name: name || 'Unnamed',
           description: description || '',
-          maxSupply: 0,
+          maxSupply: maxSupply || 0,
           contractAddress: address,
           creatorAddress: '',
           createdAt: new Date().toISOString()
         });
+        fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
+        return new Response(JSON.stringify({ success: true }));
+      }
+
+      case 'add-nft': {
+        const { tokenId, metadata, txId, collectionAddress } = params;
+        let state = { collections: [], ownedTokens: {} };
+        if (fs.existsSync(STATE_FILE)) {
+          state = JSON.parse(fs.readFileSync(STATE_FILE, 'utf-8'));
+        }
+        if (!state.ownedTokens) state.ownedTokens = {};
+        state.ownedTokens[tokenId] = {
+          tokenId,
+          metadataHash: crypto.createHash('sha256').update(metadata).digest('hex'),
+          metadata,
+          txId,
+          collectionAddress
+        };
         fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
         return new Response(JSON.stringify({ success: true }));
       }

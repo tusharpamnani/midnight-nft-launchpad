@@ -1,7 +1,7 @@
 'use client';
 
 import { CollectionInfo } from '../types/nft';
-import { Box, CheckCircle } from 'lucide-react';
+import { AlertCircle } from 'lucide-react';
 
 interface CollectionListProps {
   collections: CollectionInfo[];
@@ -12,70 +12,58 @@ interface CollectionListProps {
 export default function CollectionList({ collections, onSelect, selectedAddress }: CollectionListProps) {
   if (collections.length === 0) {
     return (
-      <div className="flex flex-col items-center justify-center py-20 border border-dashed border-white/[0.04] text-center">
-        <Box className="w-8 h-8 text-zinc-800 mb-4" />
-        <p className="text-[10px] font-mono tracking-[0.2em] text-zinc-700 uppercase">No factories deployed</p>
-        <p className="text-[10px] font-mono text-zinc-800 mt-1">Deploy below to get started</p>
+      <div className="py-6" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+        <p className="text-[10px] font-martian tracking-[0.2em] uppercase" style={{ color: 'rgba(255,255,255,0.15)' }}>No factories deployed</p>
       </div>
     );
   }
 
   return (
-    <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-      {collections.map((col) => {
+    <div className="overflow-x-auto" style={{ maxHeight: '180px' }}>
+      {collections.map((col, idx) => {
         const isSelected = selectedAddress === col.address;
+        const isUnnamed = !col.name || col.name.trim() === '' || col.name === 'Unnamed Collection';
 
         return (
           <button
             key={col.address}
             onClick={() => onSelect(col.address)}
-            className={`group relative text-left p-6 border transition-all duration-200 active:scale-[0.99] ${
-              isSelected
-                ? 'border-violet-500/30 bg-violet-500/[0.03]'
-                : 'border-white/[0.05] bg-white/[0.01] hover:border-white/10 hover:bg-white/[0.025]'
-            }`}
+            className="group w-full text-left transition-all duration-200"
+            style={{
+              background: isSelected ? 'rgba(0,0,254,0.04)' : 'transparent',
+              borderBottom: idx < collections.length - 1 ? '1px solid rgba(255,255,255,0.04)' : 'none'
+            }}
+            onMouseEnter={(e) => { if (!isSelected) e.currentTarget.style.background = 'rgba(255,255,255,0.02)' }}
+            onMouseLeave={(e) => { if (!isSelected) e.currentTarget.style.background = 'transparent' }}
           >
-            {/* Corner accents — only on selected */}
-            {isSelected && (
-              <>
-                <div className="absolute top-0 left-0 w-3 h-3 border-t border-l border-violet-500/50" />
-                <div className="absolute top-0 right-0 w-3 h-3 border-t border-r border-violet-500/50" />
-                <div className="absolute bottom-0 left-0 w-3 h-3 border-b border-l border-violet-500/50" />
-                <div className="absolute bottom-0 right-0 w-3 h-3 border-b border-r border-violet-500/50" />
-              </>
-            )}
-
-            <div className="space-y-4">
-              <div className="flex items-start justify-between gap-3">
-                <div className="flex items-center gap-3 min-w-0">
-                  <div className={`w-8 h-8 border flex items-center justify-center shrink-0 transition-colors ${
-                    isSelected ? 'border-violet-500/30 bg-violet-500/10' : 'border-white/[0.06] bg-white/[0.02]'
-                  }`}>
-                    <Box className={`w-3.5 h-3.5 transition-colors ${isSelected ? 'text-violet-400' : 'text-zinc-600 group-hover:text-zinc-400'}`} />
-                  </div>
-                  <h4 className="text-sm font-bold font-mono text-white truncate">{col.name}</h4>
-                </div>
-                {isSelected && (
-                  <div className="shrink-0">
-                    <CheckCircle className="w-4 h-4 text-emerald-400" />
-                  </div>
-                )}
+            <div className="flex items-center justify-between px-4 py-3" style={{ opacity: isUnnamed ? 0.4 : 1 }}>
+              {/* Name */}
+              <div className="w-[35%] min-w-0">
+                <h4 className="text-sm font-syne font-bold text-white truncate">
+                  {isUnnamed ? '---' : col.name}
+                </h4>
               </div>
 
-              <p className="text-[11px] text-zinc-600 leading-relaxed line-clamp-2 font-mono">
-                {col.description}
-              </p>
+              {/* Supply Cap */}
+              <div className="w-[20%] text-center">
+                <span className="text-xl font-dm-serif text-white">{col.maxSupply || (col as any).supply || '∞'}</span>
+              </div>
 
-              <div className="pt-4 border-t border-white/[0.04] flex items-end justify-between">
-                <div className="space-y-1">
-                  <span className="text-[8px] tracking-[0.2em] font-mono text-zinc-700 uppercase">Supply Cap</span>
-                  <div className="text-2xl font-black font-mono text-white leading-none">
-                    {col.maxSupply || (col as any).supply || '∞'}
-                  </div>
-                </div>
-                <code className="text-[9px] font-mono text-zinc-700 block">
-                  {col.address.slice(0, 10)}…
+              {/* Contract Address */}
+              <div className="w-[35%] min-w-0 text-right">
+                <code className="text-[9px] font-martian block truncate" style={{ color: 'rgba(255,255,255,0.15)' }}>
+                  {col.address.slice(0, 20)}...
                 </code>
+              </div>
+
+              {/* Status */}
+              <div className="w-[10%] text-right shrink-0">
+                {isUnnamed && (
+                  <span className="text-[8px] font-martian uppercase tracking-[0.2em]" style={{ color: 'rgba(255,255,255,0.15)' }}>Unverified</span>
+                )}
+                {isSelected && (
+                  <div className="w-2 h-2 rounded-full inline-block" style={{ background: '#0000FE' }} />
+                )}
               </div>
             </div>
           </button>

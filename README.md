@@ -115,28 +115,31 @@ npm run cli -- balance
 
 ### ✅ Working
 - Wallet connection (1AM and Lace)
-- Contract deployment (create collection)
+- Contract deployment (create collection) - **Use "New Collection" button**
 - Fetching collections and NFTs from indexer
 - Static file serving for ZK artifacts
+- Persistent "Create Collection" button in UI
 
 ### ⚠️ Blocking Issue: Transaction Submission Error
 **Error**: `Invalid Transaction: Custom error: 115` (ZK proof validation failure)
 
 **Root Cause**: The transaction's ZK proof doesn't validate against the deployed contract. This happens when:
 - ZK artifacts (prover/verifier keys) don't match the deployed contract
-- Contract was deployed with different compilation output
+- Contract was deployed with different artifacts than what's being used for minting
 
 **Attempted Fixes**:
 1. ✅ Fixed `FetchZkConfigProvider` - now uses static files at `/contract/collection/`
 2. ✅ Fixed `proofProvider` - now has `proveTx` method
-3. ✅ Recompiled contracts with `compactc`
+3. ✅ Recompiled contracts with `npm run compile`
 4. ✅ Copied fresh artifacts to `ui/public/contract/collection/`
 5. ✅ Tried `submitCallTx`, manual prove→balance→submit flow
 6. ✅ Verified static files are served correctly (HTTP 200)
 
+**Solution**: **Redeploy the contract** with the newly compiled artifacts by clicking "New Collection" button in the UI.
+
 **Next Steps**:
-- [ ] **Redeploy contract** with newly compiled artifacts
-- [ ] Test minting with fresh deployment
+- [ ] Click "New Collection" to deploy fresh contract with current artifacts
+- [ ] Try minting with the new contract address
 - [ ] Verify ZK artifacts match between deployment and minting
 
 ### Other Fixed Issues
@@ -144,6 +147,7 @@ npm run cli -- balance
 - ✅ `proofProvider.proveTx is not a function` - Fixed by creating custom `proofProvider` with `proveTx` method
 - ✅ `balanceUnsealedTransaction` return format - Fixed deserialization
 - ✅ SSR errors - Added guards against server-side execution
+- ✅ `addLog is not a function` - Fixed by passing `addLog` prop to `MintForm`
 
 ## 🗺️ Roadmap
 

@@ -1,27 +1,50 @@
 'use client';
 
 import { useState, useEffect } from 'react';
-import { useContract } from '../hooks/useContract';
+import { useRouter } from 'next/navigation';
 import { useWallet } from '../hooks/useWallet';
+import { useContract } from '../hooks/useContract';
+import { useLaunchpad } from '../hooks/useLaunchpad';
 import WalletConnect from '../components/WalletConnect';
 import LaunchpadForm from '../components/LaunchpadForm';
 import CollectionList from '../components/CollectionList';
 import MintForm from '../components/MintForm';
 import NFTList from '../components/NFTList';
-import { useLaunchpad } from '../hooks/useLaunchpad';
-import { Terminal, RefreshCw, ShieldCheck, Lock, PlusCircle, LayoutGrid, Box, Rocket } from 'lucide-react';
+import { PlusCircle, Box, ArrowUpRight } from 'lucide-react';
+import CreateCollectionModal from '../components/CreateCollectionModal';
 
 export default function Home() {
+  const [isCreateModalOpen, setIsCreateModalOpen] = useState(false);
+  const router = useRouter();
+  const { isConnected, address, session, walletType, isConnecting, walletStatus } = useWallet();
   const { deployment, deploy, log, addLog, isDeploying, refreshDeployment } = useContract();
-  const { isConnected, address, session, walletType } = useWallet();
   const [selectedContract, setSelectedContract] = useState<string | null>(null);
   const { collections, userNfts, createCollection, mint, transfer, verify, isLoading, refreshData } = useLaunchpad();
 
+  const handleMint = async (metadata: string) => {
+    if (session && selectedContract) {
+      return await mint(session, selectedContract, metadata);
+    }
+  };
+
+  const handleVerify = async (nftId: string) => {
+    if (session) {
+      return await verify(session, nftId);
+    }
+  };
+
+  const handleTransfer = async (nftId: string, recipient: string) => {
+    if (session) {
+      return await transfer(session, nftId, recipient);
+    }
+  };
+
+  // Effects must be called unconditionally
   useEffect(() => {
-    if (isConnected) {
+    if (isConnected && walletStatus !== 'checking') {
       refreshDeployment();
     }
-  }, [isConnected, refreshDeployment]);
+  }, [isConnected, walletStatus, refreshDeployment]);
 
   useEffect(() => {
     if (selectedContract && deployment?.contractAddress && selectedContract === deployment.contractAddress) {
@@ -29,355 +52,306 @@ export default function Home() {
     }
   }, [selectedContract, deployment]);
 
-  const handleDeploy = async () => {
-    if (!session) return;
-    await deploy(session);
-  };
+  // Redirect authenticated users to dashboard
+  useEffect(() => {
+    if (isConnected && walletStatus === 'detected') {
+      router.push('/dashboard');
+    }
+  }, [isConnected, walletStatus, router]);
 
-  const handleCreateCollection = async (name: string, description: string, maxSupply: number) => {
-    if (!session) return { success: false, error: 'No wallet session' };
-    return createCollection(session, name, description, maxSupply);
-  };
-
-  const handleMint = async (metadata: string) => {
-    if (!session || !selectedContract) return { success: false, error: 'No session or contract' };
-    return mint(session, selectedContract, metadata);
-  };
-
-  const handleVerify = async (tokenId: string) => {
-    if (!session) return { success: false, error: 'No wallet session' };
-    addLog(`Preparing ZK proof to verify ownership of Token #${tokenId}...`);
-    const res = await verify(session, tokenId);
-    if (res.success) addLog(`✅ Ownership verified on-chain via ZK proof! ID #${tokenId} is truly yours.`);
-    return res;
-  };
-
-  const handleTransfer = async (tokenId: string, recipient: string) => {
-    if (!session) return { success: false, error: 'No wallet session' };
-    addLog(`Transferring Token #${tokenId} to ${recipient}...`);
-    const res = await transfer(session, tokenId, recipient);
-    if (res.success) addLog(`✅ Token #${tokenId} successfully transferred and removed from inventory.`);
-    return res;
-  };
-
-  return (
-    <main className="min-h-screen bg-[#080808] text-zinc-100 font-sans relative overflow-x-hidden selection:bg-violet-500/20">
-
-      {/* Scanline overlay */}
-      <div className="fixed inset-0 pointer-events-none z-50 opacity-[0.025]"
-        style={{ backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,1) 2px, rgba(255,255,255,1) 4px)', backgroundSize: '100% 4px' }} />
-
-      {/* Ambient glow */}
-      <div className="fixed top-[-20%] left-[30%] w-[700px] h-[500px] rounded-full pointer-events-none -z-10"
-        style={{ background: 'radial-gradient(ellipse, rgba(109,40,217,0.07) 0%, transparent 70%)' }} />
-      <div className="fixed bottom-[-10%] right-[10%] w-[500px] h-[400px] rounded-full pointer-events-none -z-10"
-        style={{ background: 'radial-gradient(ellipse, rgba(109,40,217,0.04) 0%, transparent 70%)' }} />
-
-      {/* Fine grid */}
-      <div className="fixed inset-0 pointer-events-none -z-10 opacity-40"
-        style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px)', backgroundSize: '60px 60px' }} />
-
-      {/* ── NAVBAR ── */}
-      <nav className="border-b border-white/[0.04] bg-[#080808]/80 backdrop-blur-2xl sticky top-0 z-40">
-        <div className="max-w-7xl mx-auto px-8 py-5 flex justify-between items-center">
-          <div className="flex items-center gap-4">
-            {/* Logo mark */}
-            <div className="relative w-9 h-9 flex items-center justify-center">
-              <div className="absolute inset-0 border border-violet-500/30 rotate-45" />
-              <div className="absolute inset-[3px] bg-violet-600/10 rotate-45" />
-              <svg viewBox="0 0 16 16" className="w-4 h-4 relative z-10 fill-violet-400" aria-hidden>
-                <path d="M8 1 L15 5 L15 11 L8 15 L1 11 L1 5 Z" fill="none" stroke="currentColor" strokeWidth="1.2" />
-                <circle cx="8" cy="8" r="2" fill="currentColor" />
-              </svg>
+  // Show landing page while not connected
+  if (!isConnected) {
+    return (
+      <main className="min-h-screen bg-[#080808] text-zinc-100 font-sans relative overflow-x-hidden selection:bg-violet-500/20">
+        {/* Scanline overlay */}
+        <div className="fixed inset-0 pointer-events-none z-50 opacity-[0.025]" 
+          style={{ backgroundImage: 'repeating-linear-gradient(0deg, transparent, transparent 2px, rgba(255,255,255,1) 2px, rgba(255,255,255,1) 4px)', backgroundSize: '100% 4px' }} />
+        
+        {/* Ambient glow */}
+        <div className="fixed top-[-20%] left-[30%] w-[700px] h-[500px] rounded-full pointer-events-none -z-10"
+          style={{ background: 'radial-gradient(ellipse, rgba(109,40,217,0.07) 0%, transparent 70%)' }} />
+        <div className="fixed bottom-[-10%] right-[10%] w-[500px] h-[400px] rounded-full pointer-events-none -z-10"
+          style={{ background: 'radial-gradient(ellipse, rgba(109,40,217,0.04) 0%, transparent 70%)' }} />
+        
+        {/* Fine grid */}
+        <div className="fixed inset-0 pointer-events-none -z-10 opacity-40"
+          style={{ backgroundImage: 'linear-gradient(rgba(255,255,255,0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(255,255,255,0.015) 1px, transparent 1px)', backgroundSize: '60px 60px' }} />
+        
+        {/* ── NAVBAR ── */}
+        <nav className="border-b sticky top-0 z-40" style={{ borderColor: 'rgba(255,255,255,0.04)', background: 'rgba(8,8,16,0.8)', backdropFilter: 'blur(20px)' }}>
+          <div className="max-w-7xl mx-auto px-8 py-4 flex items-center justify-between">
+            <div className="flex items-center gap-5">
+              {/* Animated logo mark */}
+              <div className="relative w-10 h-10 flex items-center justify-center animate-rotate">
+                <div className="absolute inset-0 border rotate-45" style={{ borderColor: 'rgba(0,0,254,0.2)' }} />
+                <div className="absolute inset-[3px] rotate-45 animate-counter-rotate" style={{ background: 'rgba(0,0,254,0.08)' }}>
+                  <div className="absolute inset-[3px] rotate-45" style={{ border: '1px solid rgba(0,0,254,0.3)' }} />
+                </div>
+                <svg viewBox="0 0 16 16" className="w-4 h-4 relative z-10 -rotate-45" fill="#0000FE" aria-hidden>
+                  <path d="M8 1 L15 5 L15 11 L8 15 L1 11 L1 5 Z" fill="none" stroke="currentColor" strokeWidth="1.2" />
+                  <circle cx="8" cy="8" r="2" fill="currentColor" />
+                </svg>
+              </div>
+              <div>
+                <span className="text-[13px] font-syne font-bold tracking-[0.15em] text-white uppercase">Midnight</span>
+                <div className="flex items-center gap-2 mt-0.5">
+                  <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-[9px] tracking-[0.25em] uppercase text-zinc-600 font-martian">Preprod Network</span>
+                </div>
+              </div>
             </div>
-            <div>
-              <span className="text-[13px] font-bold tracking-[0.2em] text-white uppercase font-mono">Midnight</span>
-              <div className="flex items-center gap-2 mt-0.5">
-                <span className="inline-block w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                <span className="text-[9px] tracking-[0.25em] uppercase text-zinc-600 font-mono">Preprod Network</span>
+          
+            <div className="flex items-center gap-6">
+              {isConnected && (
+                <div className="flex items-center gap-2 px-4 py-2" style={{ border: '1px solid rgba(255,255,255,0.06)' }}>
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-[9px] tracking-[0.2em] uppercase font-martian" style={{ color: 'rgba(255,255,255,0.4)' }}>Connected</span>
+                </div>
+              )}
+            </div>
+          </div>
+        </nav>
+
+        {/* ── HERO SECTION ── */}
+        <section className="relative min-h-screen flex flex-col items-center justify-center px-8 py-20">
+          {/* Logo: nested rotating diamond rings with counter-rotating eye */}
+          <div className="mb-16 relative">
+            <div className="w-32 h-32 animate-rotate" style={{ border: '1px solid rgba(0,0,254,0.15)' }}>
+              <div className="absolute inset-[8px] animate-counter-rotate" style={{ border: '1px solid rgba(0,0,254,0.25)' }}>
+                <div className="absolute inset-[8px] animate-rotate" style={{ border: '1px solid rgba(0,0,254,0.35)' }}>
+                  <div className="absolute inset-[6px] flex items-center justify-center animate-counter-rotate">
+                    <svg viewBox="0 0 24 24" className="w-8 h-8" fill="none" stroke="#0000FE" strokeWidth="1.5">
+                      <circle cx="12" cy="12" r="3" fill="#0000FE" />
+                      <path d="M12 2C6.48 2 2 6.48 2 12s4.48 10 10 10 10-4.48 10-10S17.52 2 12 2z" strokeDasharray="2 2" />
+                      <path d="M2 12h20M12 2a15.3 15.3 0 0 1 4 10 15.3 15.3 0 0 1-4 10 15.3 15.3 0 0 1-4-10 15.3 15.3 0 0 1 4-10z" />
+                    </svg>
+                  </div>
+                </div>
               </div>
             </div>
           </div>
 
-          {/* <WalletConnect /> */}
-        </div>
-      </nav>
+          {/* Eyebrow label with flanking lines */}
+          <div className="flex items-center gap-4 mb-8">
+            <div className="w-12 h-px" style={{ background: 'rgba(0,0,254,0.3)' }} />
+            <span className="text-[9px] tracking-[0.35em] font-martian uppercase" style={{ color: '#0000FE' }}>Powered by Midnight Network</span>
+            <div className="w-12 h-px" style={{ background: 'rgba(0,0,254,0.3)' }} />
+          </div>
 
-      {/* ── MAIN ── */}
-      <div className="max-w-7xl mx-auto px-8 py-16">
+          {/* Hero Headline: DM Serif Display + italic outline */}
+          <div className="text-center space-y-4 max-w-5xl relative">
+            <h1 className="text-[80px] md:text-[100px] font-dm-serif font-normal tracking-[-0.02em] text-white leading-[0.9]">
+              Private
+            </h1>
+            <h1 className="text-[80px] md:text-[100px] font-dm-serif italic font-normal tracking-[-0.02em] leading-[0.9]" style={{ WebkitTextStroke: '1px rgba(0,0,254,0.5)', color: 'transparent' }}>
+              NFT Launchpad
+            </h1>
 
-        {!isConnected ? (
-          /* ── LOCKED STATE ── */
-          <div className="flex flex-col items-center justify-center py-32 space-y-10">
-            <div className="relative">
-              <div className="w-20 h-20 border border-white/[0.06] flex items-center justify-center rotate-45">
-                <div className="w-14 h-14 border border-violet-500/20 flex items-center justify-center">
-                  <Lock className="w-6 h-6 text-violet-400 -rotate-45" />
+            {/* Stat strip with hairline dividers */}
+            <div className="flex flex-wrap items-center justify-center gap-8 pt-8">
+              {[
+                { value: '4th', label: 'Gen Blockchain' },
+                { value: 'ZK', label: 'Shielded by Default' },
+                { value: '0', label: 'Data Leaked' }
+              ].map(({ value, label }, i) => (
+                <div key={label} className="flex items-center gap-8">
+                  {i > 0 && <div className="w-px h-12" style={{ background: 'rgba(255,255,255,0.08)' }} />}
+                  <div className="text-center">
+                    <div className="text-[32px] font-dm-serif text-white leading-none">{value}</div>
+                    <div className="text-[9px] tracking-[0.3em] font-martian text-zinc-600 mt-1">{label}</div>
+                  </div>
                 </div>
-              </div>
-              <div className="absolute inset-[-20px] border border-violet-500/[0.08] rotate-45" />
-            </div>
-
-            <div className="text-center space-y-3 max-w-sm">
-              <h2 className="text-3xl font-bold tracking-tight text-white font-mono">Authenticate</h2>
-              <p className="text-sm text-zinc-500 leading-relaxed">
-                Connect your Lace wallet or provide a recovery seed to access the private NFT launchpad.
-              </p>
-            </div>
-
-            <WalletConnect />
-
-            <div className="flex items-center gap-6 pt-4">
-              {['ZK-SHIELDED', 'ON-CHAIN PROOF', 'PREPROD LIVE'].map((tag) => (
-                <span key={tag} className="text-[9px] tracking-[0.2em] text-zinc-700 font-mono">{tag}</span>
               ))}
             </div>
           </div>
 
-        ) : (
-          /* ── CONNECTED STATE ── */
-          <div className="space-y-20">
+          {/* Subtitle */}
+          <p className="text-sm text-zinc-500 max-w-xl mx-auto leading-relaxed text-center mt-10">
+            Mint, manage, and trade NFTs with programmable privacy.
+            <br />Built on Midnight — the fourth-generation blockchain.
+          </p>
 
-            {/* ── PAGE HEADER ── */}
-            <div className="flex flex-col lg:flex-row lg:items-end justify-between gap-10 pb-12 border-b border-white/[0.04]">
-              <div className="space-y-5">
-                <div className="flex items-center gap-3">
-                  <span className="text-[9px] tracking-[0.3em] text-violet-500 font-mono uppercase">Protocol v0.22 · Compact Runtime</span>
-                </div>
-                <h1 className="text-[56px] font-black tracking-[-0.03em] text-white leading-[0.92] font-mono uppercase">
-                  NFT<br />
-                  <span style={{ WebkitTextStroke: '1px rgba(139,92,246,0.6)', color: 'transparent' }}>Launchpad</span>
-                </h1>
-                <p className="text-sm text-zinc-500 max-w-xs leading-relaxed">
-                  Deploy encrypted NFT factories. Ownership and supply remain privately shielded.
-                </p>
-
-                <div className="flex items-center gap-3 pt-2">
-                  <div className="flex items-center gap-2 px-3 py-1.5 border border-white/[0.06] bg-white/[0.02]">
-                    <Box className="w-3.5 h-3.5 text-violet-400" />
-                    <span className="text-[10px] font-mono text-zinc-400">{collections.length} factories</span>
-                  </div>
-                  {!deployment && (
-                    <button
-                      onClick={handleDeploy}
-                      disabled={isDeploying}
-                      className="flex items-center gap-2 px-4 py-1.5 border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-[10px] font-mono text-amber-400 transition-all animate-pulse"
-                    >
-                      <Rocket className="w-3.5 h-3.5" />
-                      Deploy Base Factory
-                    </button>
-                  )}
-                  {selectedContract && (
-                    <div className="flex items-center gap-2 px-3 py-1.5 border border-violet-500/20 bg-violet-500/[0.04]">
-                      <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
-                      <span className="text-[10px] font-mono text-violet-400">registry mode</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-
-              {/* Active context panel */}
-              <div className="w-full lg:w-[380px]">
-                <div className="border border-white/[0.05] bg-white/[0.015] p-6 relative">
-                  {/* Corner accents */}
-                  <div className="absolute top-0 left-0 w-4 h-4 border-t border-l border-violet-500/30" />
-                  <div className="absolute top-0 right-0 w-4 h-4 border-t border-r border-violet-500/30" />
-                  <div className="absolute bottom-0 left-0 w-4 h-4 border-b border-l border-violet-500/30" />
-                  <div className="absolute bottom-0 right-0 w-4 h-4 border-b border-r border-violet-500/30" />
-
-                  {selectedContract ? (
-                    <div className="space-y-4">
-                      <div className="flex items-center justify-between">
-                        <span className="text-[9px] tracking-[0.25em] text-zinc-600 font-mono uppercase">Active Context</span>
-                        <ShieldCheck className="w-3.5 h-3.5 text-violet-500/50" />
-                      </div>
-                      <code className="text-[11px] font-mono text-violet-400 block break-all leading-relaxed">
-                        {selectedContract}
-                      </code>
-                      <button
-                        onClick={() => setSelectedContract(null)}
-                        className="w-full py-2.5 border border-white/[0.06] bg-transparent hover:bg-white/[0.03] text-zinc-500 hover:text-zinc-300 text-[10px] font-mono tracking-widest uppercase transition-all flex items-center justify-center gap-2"
-                      >
-                        <PlusCircle className="w-3.5 h-3.5" />
-                        Clear Selection
-                      </button>
-                    </div>
-                  ) : (
-                    <div className="flex flex-col items-center py-6 gap-3 opacity-30">
-                      <LayoutGrid className="w-8 h-8 text-zinc-600" />
-                      <span className="text-[10px] font-mono text-zinc-600 tracking-widest uppercase">No Factory Selected</span>
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            {/* ── MAIN GRID ── */}
-            <div className="grid grid-cols-1 lg:grid-cols-[1fr_320px] gap-16">
-
-              {/* Left column */}
-              <div className="space-y-20">
-
-                {/* Registry Gallery */}
-                <section className="space-y-8">
-                  <div className="flex items-center justify-between">
-                    <div className="space-y-1">
-                      <span className="text-[9px] tracking-[0.3em] text-zinc-600 font-mono uppercase">01 / Factory Registry</span>
-                      <h2 className="text-xl font-bold font-mono text-white tracking-tight">Collections</h2>
-                    </div>
-                    <button
-                      onClick={refreshData}
-                      className="w-9 h-9 border border-white/[0.06] flex items-center justify-center text-zinc-600 hover:text-zinc-300 hover:border-white/10 transition-all"
-                    >
-                      <RefreshCw className="w-3.5 h-3.5" />
-                    </button>
-                  </div>
-                  <CollectionList
-                    collections={collections}
-                    onSelect={setSelectedContract}
-                    selectedAddress={selectedContract}
-                  />
-                </section>
-
-                {/* Deploy base contract (when no deployment exists) */}
-                {!deployment && (
-                  <section className="space-y-8">
-                    <div className="space-y-1">
-                      <span className="text-[9px] tracking-[0.3em] text-zinc-600 font-mono uppercase">02 / Protocol</span>
-                      <h2 className="text-xl font-bold font-mono text-white tracking-tight">Deploy Base Contract</h2>
-                    </div>
-                    <div className="relative border border-white/[0.05] bg-white/[0.01] p-8">
-                      <div className="absolute top-0 left-0 w-3 h-3 border-t border-l border-violet-500/30" />
-                      <div className="absolute top-0 right-0 w-3 h-3 border-t border-r border-violet-500/30" />
-                      <div className="space-y-6">
-                        <p className="text-[11px] font-mono text-zinc-500 leading-relaxed">
-                          Deploy the base NFT contract from your wallet. This requires ZK proof generation.
-                        </p>
-                        <button
-                          onClick={handleDeploy}
-                          disabled={isDeploying || !session}
-                          className="w-full flex items-center justify-center gap-3 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-mono text-[11px] tracking-[0.2em] uppercase py-4 transition-all active:scale-[0.99]"
-                        >
-                          {isDeploying ? (
-                            <>
-                              <div className="w-3.5 h-3.5 border border-white/30 border-t-white rounded-full animate-spin" />
-                              Generating ZK Proof...
-                            </>
-                          ) : (
-                            <>
-                              <Rocket className="w-3.5 h-3.5" />
-                              Deploy Contract
-                            </>
-                          )}
-                        </button>
-                      </div>
-                    </div>
-                  </section>
-                )}
-
-                {/* Launch form (only when no collection selected and deployment exists) */}
-                {!selectedContract && deployment && (
-                  <section className="space-y-8">
-                    <div className="space-y-1">
-                      <span className="text-[9px] tracking-[0.3em] text-zinc-600 font-mono uppercase">03 / Factory</span>
-                      <h2 className="text-xl font-bold font-mono text-white tracking-tight">New Collection</h2>
-                    </div>
-                    <LaunchpadForm onCreate={handleCreateCollection} isLoading={isLoading} addLog={addLog} />
-                  </section>
-                )}
-
-                {/* Mint + NFT area (when collection selected) */}
-                {selectedContract && (
-                  <div className="space-y-20">
-                    <section className="space-y-8">
-                      <div className="space-y-1">
-                        <span className="text-[9px] tracking-[0.3em] text-zinc-600 font-mono uppercase">02 / Protocol</span>
-                        <h2 className="text-xl font-bold font-mono text-white tracking-tight">Mint NFT</h2>
-                      </div>
-                      <MintForm onMint={handleMint} isLoading={isLoading} addLog={addLog} />
-                    </section>
-
-                    <section className="space-y-8">
-                      <div className="space-y-1">
-                        <span className="text-[9px] tracking-[0.3em] text-zinc-600 font-mono uppercase">03 / Inventory</span>
-                        <h2 className="text-xl font-bold font-mono text-white tracking-tight">Your Tokens</h2>
-                      </div>
-                      <NFTList
-                        nfts={userNfts.filter(n => n.collectionAddress === selectedContract)}
-                        onVerify={handleVerify}
-                        onTransfer={handleTransfer}
-                      />
-
-                    </section>
-                  </div>
-                )}
-              </div>
-
-              {/* Right sidebar — Node Monitor */}
-              <aside className="space-y-6">
-                <div className="sticky top-28">
-                  {/* Terminal */}
-                  <div className="border border-white/[0.05] bg-[#060606] flex flex-col h-[520px] relative">
-                    <div className="absolute top-0 left-0 w-3 h-3 border-t border-l border-violet-500/30" />
-                    <div className="absolute top-0 right-0 w-3 h-3 border-t border-r border-violet-500/30" />
-
-                    {/* Terminal header */}
-                    <div className="flex items-center gap-2.5 px-5 py-4 border-b border-white/[0.04]">
-                      <Terminal className="w-3.5 h-3.5 text-emerald-500" />
-                      <span className="text-[9px] tracking-[0.25em] font-mono text-zinc-600 uppercase">Node Monitor</span>
-                      <div className="ml-auto flex items-center gap-1.5">
-                        <span className={`w-1.5 h-1.5 rounded-full ${isLoading ? 'bg-amber-400 animate-pulse' : 'bg-emerald-400'}`} />
-                        <span className="text-[9px] font-mono text-zinc-700">{isLoading ? 'ACTIVE' : 'IDLE'}</span>
-                      </div>
-                    </div>
-
-                    {/* Log area */}
-                    <div className="flex-1 overflow-y-auto p-5 font-mono text-[10px] space-y-3 custom-scrollbar">
-                      {log.length === 0 ? (
-                        <div className="text-zinc-800 space-y-1">
-                          <p>{'>'} System ready.</p>
-                          <p>{'>'} Awaiting ZK witness data...</p>
-                          <p className="animate-pulse">{'>'} _</p>
-                        </div>
-                      ) : (
-                        log.map((entry: string, i: number) => (
-                          <div key={i} className="flex gap-3">
-                            <span className="text-violet-900 shrink-0 select-none">{'>'}</span>
-                            <span className="text-zinc-500 leading-relaxed">{entry}</span>
-                          </div>
-                        ))
-                      )}
-                    </div>
-
-                    <div className="absolute bottom-0 left-0 w-3 h-3 border-b border-l border-violet-500/30" />
-                    <div className="absolute bottom-0 right-0 w-3 h-3 border-b border-r border-violet-500/30" />
-                  </div>
-
-                  {/* Architecture notes */}
-                  <div className="mt-4 border border-white/[0.04] p-5 space-y-4">
-                    <span className="text-[9px] tracking-[0.25em] text-zinc-700 font-mono uppercase">Architecture</span>
-                    <div className="space-y-3 pt-1">
-                      {[
-                        ['Multi-Contract', 'Each collection is an independent on-chain instance.'],
-                        ['Global Registry', 'State persists across browser sessions automatically.'],
-                        ['ZK Constraints', 'Supply caps enforced at circuit level; immutable post-deploy.'],
-                      ].map(([title, desc]) => (
-                        <div key={title} className="flex gap-3">
-                          <div className="w-px bg-violet-500/20 shrink-0 mt-1" style={{ height: '1em' }} />
-                          <p className="text-[10px] text-zinc-600 leading-relaxed">
-                            <span className="text-zinc-400 font-medium">{title}:</span> {desc}
-                          </p>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                </div>
-              </aside>
-
+          {/* CTA Buttons */}
+          <div className="flex items-center gap-4 pt-10 pb-20">
+            <div className="relative overflow-hidden group">
+              <WalletConnect />
+              {/* Shimmer sweep */}
+              <div className="absolute inset-0 -translate-x-full group-hover:translate-x-full transition-transform duration-700 bg-gradient-to-r from-transparent via-white/10 to-transparent" />
             </div>
           </div>
-        )}
-      </div>
-    </main>
-  );
+
+          {/* Animated Ticker Bar */}
+          <div className="absolute bottom-20 left-0 right-0 overflow-hidden border-y py-3" style={{ borderColor: 'rgba(0,0,254,0.1)' }}>
+            <div className="flex gap-12 animate-ticker whitespace-nowrap">
+              {[...Array(2)].map((_, i) => (
+                <div key={i} className="flex gap-12">
+                  {['ZK-Shielded Minting', 'On-Chain Proofs', 'Selective Disclosure', 'Compact Circuits', 'Programmable Privacy'].map((text) => (
+                    <span key={text} className="text-[10px] tracking-[0.3em] font-martian uppercase" style={{ color: 'rgba(0,0,254,0.6)' }}>
+                      {text}
+                    </span>
+                  ))}
+                </div>
+              ))}
+            </div>
+          </div>
+
+          {/* Scroll indicator */}
+          <div className="absolute bottom-8 right-8 flex flex-col items-center gap-2">
+            <span className="text-[8px] tracking-[0.3em] font-martian uppercase text-zinc-700 rotate-90 translate-y-8">Scroll</span>
+            <div className="w-px h-12 bg-zinc-800 relative overflow-hidden">
+              <div className="absolute inset-x-0 top-0 h-4 bg-[#0000FE]/40 animate-scroll-line" />
+            </div>
+          </div>
+        </section>
+
+        {/* ── FEATURES: flush grid with 1px line separators ── */}
+        <section className="relative border-t" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+          <div className="max-w-7xl mx-auto px-8 py-32 relative">
+            {/* Section header with ghost number */}
+            <div className="mb-20 relative">
+              <span className="text-[9px] tracking-[0.3em] font-martian uppercase" style={{ color: '#0000FE' }}>01 / Core Features</span>
+              <h2 className="text-[48px] font-dm-serif text-white mt-2">Programmable Privacy</h2>
+              <div className="absolute right-0 top-0 text-[180px] font-dm-serif leading-none" style={{ color: 'rgba(255,255,255,0.08)' }}>01</div>
+            </div>
+
+            {/* Flush grid - no card borders, just 1px line separators */}
+            <div className="grid grid-cols-1 md:grid-cols-3">
+              {[
+                {
+                  title: 'ZK-Shielded Minting',
+                  desc: 'Your NFT ownership and metadata remain private. Only you control what to disclose and when.',
+                  stat: '100%'
+                },
+                {
+                  title: 'On-Chain Proofs',
+                  desc: 'Verify ownership without revealing identity. Zero-knowledge proofs protect your privacy.',
+                  stat: '256 bytes'
+                },
+                {
+                  title: 'Programmable Privacy',
+                  desc: 'Set supply caps and rules directly in ZK circuits. Immutable on-chain logic.',
+                  stat: '0 leaks'
+                }
+              ].map(({ title, desc, stat }, i) => (
+                <div key={title} className="relative p-8 group" style={{ borderRight: i < 2 ? '1px solid rgba(255,255,255,0.06)' : 'none' }}>
+                  {/* Blue scaleX top-border reveal on hover */}
+                  <div className="absolute top-0 left-0 right-0 h-px scale-x-0 group-hover:scale-x-100 transition-transform duration-500 origin-left" style={{ background: '#0000FE' }} />
+                  <div className="space-y-4">
+                    <div className="flex items-start justify-between">
+                      <span className="text-[48px] font-dm-serif text-white/20 leading-none">{stat}</span>
+                      <div className="w-8 h-8 flex items-center justify-center" style={{ border: '1px solid rgba(0,0,254,0.2)' }}>
+                        {i === 0 && <div className="w-3 h-3" style={{ background: '#0000FE' }} />}
+                        {i === 1 && <div className="w-3 h-3 rotate-45" style={{ background: '#0000FE' }} />}
+                        {i === 2 && <div className="w-3 h-3 rounded-full" style={{ background: '#0000FE' }} />}
+                      </div>
+                    </div>
+                    <h3 className="text-lg font-syne font-bold text-white">{title}</h3>
+                    <p className="text-[12px] text-zinc-500 leading-relaxed font-martian">{desc}</p>
+                  </div>
+                </div>
+              ))}
+            </div>
+          </div>
+        </section>
+
+        {/* ── STEPS: numbered circles with connecting hairline ── */}
+        <section className="relative border-t" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+          <div className="max-w-7xl mx-auto px-8 py-32 relative">
+            {/* Section header */}
+            <div className="mb-20 relative">
+              <span className="text-[9px] tracking-[0.3em] font-martian uppercase" style={{ color: '#0000FE' }}>02 / Process</span>
+              <h2 className="text-[48px] font-dm-serif text-white mt-2">How It Works</h2>
+              <div className="absolute right-0 top-0 text-[180px] font-dm-serif leading-none" style={{ color: 'rgba(255,255,255,0.08)' }}>02</div>
+            </div>
+
+            {/* Steps with connecting line */}
+            <div className="relative">
+              {/* Horizontal connecting hairline */}
+              <div className="hidden md:block absolute top-6 left-[60px] right-[60px] h-px" style={{ background: 'rgba(255,255,255,0.08)' }} />
+
+              <div className="grid grid-cols-1 md:grid-cols-4 gap-8">
+                {[
+                  { num: '01', title: 'Connect', desc: 'Link your Lace wallet or use a recovery seed to authenticate privately.' },
+                  { num: '02', title: 'Deploy', desc: 'Deploy a base contract factory with ZK proof generation.' },
+                  { num: '03', title: 'Create', desc: 'Launch NFT collections with customizable supply caps and metadata.' },
+                  { num: '04', title: 'Mint & Trade', desc: 'Mint NFTs with shielded ownership. Transfer with ZK verification.' }
+                ].map(({ num, title, desc }) => (
+                  <div key={num} className="relative pl-6" style={{ borderLeft: '1px solid rgba(255,255,255,0.06)' }}>
+                    {/* Numbered circle */}
+                    <div className="absolute -left-[18px] top-0 w-9 h-9 rounded-full flex items-center justify-center" style={{ border: '1px solid rgba(0,0,254,0.3)', background: '#080810' }}>
+                      <span className="text-[10px] font-dm-serif text-[#0000FE]">{num}</span>
+                    </div>
+                    <div className="space-y-3 pt-2">
+                      <h3 className="text-base font-syne font-bold text-white">{title}</h3>
+                      <p className="text-[11px] text-zinc-500 leading-relaxed font-martian">{desc}</p>
+                    </div>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── ZK PROOF TERMINAL ── */}
+        <section className="relative border-t" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+          <div className="max-w-7xl mx-auto px-8 py-32 relative">
+            {/* Section header */}
+            <div className="mb-20 relative">
+              <span className="text-[9px] tracking-[0.3em] font-martian uppercase" style={{ color: '#0000FE' }}>03 / Live Terminal</span>
+              <h2 className="text-[48px] font-dm-serif text-white mt-2">ZK Proof Output</h2>
+              <div className="absolute right-0 top-0 text-[180px] font-dm-serif leading-none" style={{ color: 'rgba(255,255,255,0.08)' }}>03</div>
+            </div>
+
+            {/* Terminal Block */}
+            <div className="relative overflow-hidden" style={{ background: 'rgba(0,0,0,0.4)', border: '1px solid rgba(255,255,255,0.04)' }}>
+              {/* Animated scanning top-border gradient */}
+              <div className="absolute top-0 left-0 right-0 h-[2px] bg-gradient-to-r from-transparent via-[#0000FE] to-transparent animate-scan" />
+
+              {/* Terminal header */}
+              <div className="flex items-center gap-3 px-6 py-4" style={{ borderBottom: '1px solid rgba(255,255,255,0.04)' }}>
+                <div className="w-2 h-2 rounded-full bg-red-500/60" />
+                <div className="w-2 h-2 rounded-full bg-amber-500/60" />
+                <div className="w-2 h-2 rounded-full bg-emerald-500/60" />
+                <span className="ml-4 text-[9px] tracking-[0.3em] font-martian uppercase text-zinc-600">Midnight ZK Terminal</span>
+                <div className="ml-auto flex items-center gap-2">
+                  <div className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />
+                  <span className="text-[9px] font-martian text-zinc-700">LIVE</span>
+                </div>
+              </div>
+
+              {/* Proof output lines */}
+              <div className="p-6 font-martian text-[11px] space-y-3">
+                {[
+                  '> Initializing Compact runtime...',
+                  '> Loading circuit constraints (nft_collection.wasm)...',
+                  '> Generating ZK witness for mint_transaction...',
+                  '> Proving system: Groth16 (Trusted Setup Complete)',
+                  '> Proof generated: 0x7f3a...9c2e (256 bytes)',
+                  '> Broadcasting to Midnight Preprod Network...',
+                  '> Transaction confirmed in block #1,204,892',
+                ].map((line, i) => (
+                  <div key={i} className="flex gap-3" style={{ opacity: i < 3 ? 1 : i < 5 ? 0.6 : 0.3 }}>
+                    <span className="text-[#0000FE] shrink-0 select-none">{'>'}</span>
+                    <span style={{ color: 'rgba(255,255,255,0.4)' }}>{line}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          </div>
+        </section>
+
+        {/* ── FOOTER STRIP ── */}
+        <footer className="border-t pt-8 flex items-center justify-between" style={{ borderColor: 'rgba(255,255,255,0.06)' }}>
+          <div className="flex items-center gap-8 text-[9px] font-martian tracking-[0.2em] uppercase" style={{ color: 'rgba(255,255,255,0.25)' }}>
+            <span>Multi-Contract</span>
+            <span className="w-px h-3" style={{ background: 'rgba(255,255,255,0.08)' }} />
+            <span>Global Registry</span>
+            <span className="w-px h-3" style={{ background: 'rgba(255,255,255,0.08)' }} />
+            <span>ZK Constraints</span>
+          </div>
+          <span className="text-[9px] tracking-[0.2em] text-zinc-700 font-martian">© 2026 Midnight NFT Launchpad</span>
+        </footer>
+      </main>
+    );
+  }
 }

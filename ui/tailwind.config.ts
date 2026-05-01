@@ -9,8 +9,9 @@ const config: Config = {
   theme: {
     extend: {
       fontFamily: {
-        sans: ["var(--font-inter)"],
-        display: ["var(--font-outfit)"],
+        'dm-serif': ["var(--font-dm-serif)"],
+        'syne': ["var(--font-syne)"],
+        'martian': ["var(--font-martian-mono)"],
       },
     },
   },

@@ -108,10 +108,19 @@ export async function createConnectedSession(api: any): Promise<ConnectedSession
   setNetworkId(config.networkId);
 
   // Use FetchZkConfigProvider with static files served from /contract/collection/
-  // The provider expects files at: {baseUrl}/keys/{circuitId}.prover, {baseUrl}/zkir/{circuitId}.bzkir
+  // The provider fetches: {baseUrl}/keys/{circuitId}.verifier and {baseUrl}/zkir/{circuitId}.bzkir
+  const baseUrl = new URL('/contract/collection', window.location.origin).toString();
+  console.log('[zkConfigProvider] Creating with baseUrl:', baseUrl);
+  
   const zkConfigProvider = new FetchZkConfigProvider(
-    new URL('/contract/collection', window.location.origin).toString(),
+    baseUrl,
     window.fetch.bind(window),
+  );
+  
+  // Test if the provider can fetch artifacts
+  zkConfigProvider.getZKIR('mint').then(
+    (zkir) => console.log('[zkConfigProvider] getZKIR test success, length:', zkir?.length),
+    (err) => console.error('[zkConfigProvider] getZKIR test failed:', err)
   );
 
   // Get the ProvingProvider from wallet
@@ -158,12 +167,21 @@ export async function createConnectedSession(api: any): Promise<ConnectedSession
    const midnightProvider: MidnightProvider = {
     submitTx: async (tx: any) => {
       try {
+        console.log('[midnightProvider] Transaction keys:', Object.keys(tx));
         const txHex = toHex(tx.serialize());
         console.log('[midnightProvider] Submitting tx, hex length:', txHex.length);
+        
         // Use the wallet's submitTransaction directly like 1AM template
-        const txId = await api.submitTransaction(txHex);
-        console.log('[midnightProvider] Tx submitted, id:', txId);
-        return txId ?? '';
+        const result = await api.submitTransaction(txHex);
+        console.log('[midnightProvider] Submit result:', result);
+        
+        // Extract txId from result, or try to get it from the transaction object itself
+        // In some versions of the SDK, tx.id is a Uint8Array hash
+        const txIdFromObject = tx.id ? toHex(tx.id) : (tx.hash ? toHex(tx.hash) : '');
+        const txId = (typeof result === 'string' ? result : result?.transactionId || result?.id || txIdFromObject) || '';
+        
+        console.log('[midnightProvider] Final txId:', txId);
+        return txId;
       } catch (e: any) {
         console.error('[midnightProvider] Submission error:', e);
         throw e;
@@ -177,7 +195,7 @@ export async function createConnectedSession(api: any): Promise<ConnectedSession
   const indexerSubURL = process.env.NEXT_PUBLIC_INDEXER_WS_URI || 'wss://indexer.preprod.midnight.network/api/v4/graphql/ws';
   // Use native WebSocket in browser environments
   const WS = typeof window !== 'undefined' ? window.WebSocket : undefined;
-  const publicDataProvider = indexerPublicDataProvider(indexerQueryURL, indexerSubURL, WS);
+  const publicDataProvider = indexerPublicDataProvider(indexerQueryURL, indexerSubURL, WS as any);
 
   return {
     api,

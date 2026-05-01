@@ -25,8 +25,13 @@ export default function MintForm({ onMint, isLoading, addLog }: MintFormProps) {
         mintedAt: new Date().toISOString()
       });
       addLog(`Metadata validated: ${name}`);
+      addLog("Submitting transaction to Midnight network...");
       const res = await onMint(metadata);
-      addLog(`Mint successful. Token ID: ${res.tokenId}`);
+      if (res.success) {
+        addLog(`✓ Mint successful! ${res.txId || 'Check explorer for transaction'}`);
+      } else {
+        addLog(`✗ Mint failed: ${res.error}`);
+      }
     } catch (e: any) {
       addLog(`Mint error: ${e.message}`);
     }

@@ -15,6 +15,7 @@ export interface DeploymentInfo {
   contractAddress: string;
   network: string;
   deployedAt: string;
+  blockHeight?: number;
 }
 
 export interface WalletState {

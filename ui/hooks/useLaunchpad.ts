@@ -1,8 +1,8 @@
 'use client';
 import { useState, useCallback, useEffect } from 'react';
 import { CollectionInfo, NFTInfo } from '../types/nft';
-import { createUnprovenCallTx, submitCallTx, createUnprovenDeployTx } from '@midnight-ntwrk/midnight-js-contracts';
-import { sampleSigningKey } from '@midnight-ntwrk/compact-runtime';
+import { createUnprovenCallTx, submitCallTx, createUnprovenDeployTx, submitTxAsync } from '@midnight-ntwrk/midnight-js-contracts';
+import { CostModel, sampleSigningKey } from '@midnight-ntwrk/compact-runtime';
 import { getCompiledNFTContract } from '../lib/contracts';
 import { UnshieldedAddress, MidnightBech32m } from '@midnight-ntwrk/wallet-sdk-address-format';
 
@@ -43,7 +43,10 @@ export function useLaunchpad() {
   const createCollection = useCallback(async (session: any, name: string, description: string, maxSupply: number) => {
     setIsLoading(true);
     try {
-      // Get caller address bytes
+      if (!session) {
+        return { success: false, error: 'No wallet session' };
+      }
+
       const networkId = session.config.networkId;
       const callerAddressBytes = MidnightBech32m.parse(session.unshieldedAddress)
         .decode(UnshieldedAddress, networkId).data;
@@ -70,11 +73,8 @@ export function useLaunchpad() {
         },
       );
 
-
-
-
       console.log('[createCollection] Using submitTxAsync with full providers...');
-      
+
       const txId = await submitTxAsync(
         session.providers,
         {
@@ -95,7 +95,10 @@ export function useLaunchpad() {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           action: 'add-collection',
-          address: deployTxData.public.contractAddress
+          address: deployTxData.public.contractAddress,
+          name,
+          description,
+          maxSupply,
         })
       });
 
@@ -125,10 +128,9 @@ export function useLaunchpad() {
       const metadataBytes = new Uint8Array(32);
       metadataBytes.set(new TextEncoder().encode(metadata).slice(0, 32));
       
-      console.log('[mint] Using submitCallTx...');
+      console.log('[mint] Submitting via submitCallTx...');
       
-      // Try with submitCallTx - if it fails, the ZK proof is invalid
-      // This means the artifacts don't match the deployed contract
+      // Use submitCallTx - it handles prove, balance, and submit
       const result = await submitCallTx(session.providers, {
         compiledContract,
         contractAddress: collectionAddress,
@@ -136,14 +138,45 @@ export function useLaunchpad() {
         args: [metadataBytes],
       });
 
-      console.log('[mint] Success! Tx hash:', result.public.txHash);
+      console.log('[mint] Result:', result);
+      
+      // Try to get txHash from result
+      let txHash = 'Transaction submitted';
+      if (result?.public?.txHash) {
+        txHash = result.public.txHash;
+      } else if (result?.public?.txId) {
+        txHash = result.public.txId;
+      }
+      
+      console.log('[mint] Tx hash:', txHash);
+      
+      // Save NFT to local state
+      try {
+        await fetch('/api/midnight', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            action: 'add-nft',
+            tokenId: Date.now().toString(),
+            metadata,
+            txId: txHash,
+            collectionAddress,
+          })
+        });
+      } catch (e) {
+        console.error('[mint] Failed to save NFT to state:', e);
+      }
+      
       await fetchData();
-      return { success: true, txId: result.public.txHash };
+      setIsLoading(false);
+      return { success: true, txId: txHash };
     } catch (e: any) {
       console.error('[mint] Error:', e);
-      return { success: false, error: e.message };
-    } finally {
       setIsLoading(false);
+      if (e.message?.includes('check') || e.message?.includes('proof')) {
+        return { success: false, error: 'ZK proof validation failed. Try deploying a new collection.' };
+      }
+      return { success: false, error: e.message };
     }
   }, [fetchData]);
 
@@ -166,25 +199,16 @@ export function useLaunchpad() {
         recipientBytes.set(Buffer.from(recipient.replace('0x', ''), 'hex').slice(0, 32));
       } catch (e) {}
 
-      const callTxData = await createUnprovenCallTx(
-        session.providers,
-        {
-          compiledContract,
-          contractAddress: nft.collectionAddress,
-          circuitId: 'transfer',
-          args: [BigInt(tokenId), recipientBytes, new Uint8Array(32)],
-        },
-      );
-
-
-
-      await submitTxAsync(session.providers, {
-        unprovenTx: callTxData.private.unprovenTx,
+      const result = await submitCallTx(session.providers, {
+        compiledContract,
+        contractAddress: nft.collectionAddress,
+        privateStateId: nft.collectionAddress,
         circuitId: 'transfer',
+        args: [BigInt(tokenId), recipientBytes, new Uint8Array(32)],
       });
 
       await fetchData();
-      return { success: true };
+      return { success: true, txId: result.public.txHash || result.public.txId };
     } catch (e: any) {
       console.error('Error transferring:', e);
       return { success: false, error: e.message };
@@ -206,21 +230,11 @@ export function useLaunchpad() {
 
       const compiledContract = await getCompiledNFTContract('collection', callerAddressBytes);
       
-      const callTxData = await createUnprovenCallTx(
-        session.providers,
-        {
-          compiledContract,
-          contractAddress: nft.collectionAddress,
-          circuitId: 'verifyOwnership',
-          args: [BigInt(tokenId), new Uint8Array(32)],
-        },
-      );
-
-
-
-      const result = await submitTxAsync(session.providers, {
-        unprovenTx: callTxData.private.unprovenTx,
+      const result = await submitCallTx(session.providers, {
+        compiledContract,
+        contractAddress: nft.collectionAddress,
         circuitId: 'verifyOwnership',
+        args: [BigInt(tokenId), new Uint8Array(32)],
       });
 
 
