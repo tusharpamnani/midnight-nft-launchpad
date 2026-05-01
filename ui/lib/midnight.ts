@@ -2,6 +2,7 @@
 
 import { setNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
 import {
+  createProofProvider,
   type MidnightProvider,
   type PrivateStateProvider,
   type WalletProvider,
@@ -100,23 +101,34 @@ export async function createConnectedSession(api: any): Promise<ConnectedSession
 
   setNetworkId(config.networkId);
 
+  // Use FetchZkConfigProvider with static files served from /contract/collection/
+  // The provider expects files at: {baseUrl}/keys/{circuitId}.prover, {baseUrl}/zkir/{circuitId}.bzkir
+  const zkConfigProvider = new FetchZkConfigProvider(
+    new URL('/contract/collection', window.location.origin).toString(),
+    window.fetch.bind(window),
+  );
+
   // Wallet returns a ProvingProvider (circuit-level), but we need a ProofProvider (transaction-level)
-  // that has proveTx(). Wrap it accordingly.
-  const provingProvider = await api.getProvingProvider();
-  const { CostModel } = await import('@midnight-ntwrk/ledger-v8');
-  const proofProvider: ProofProvider = {
-    async proveTx(unprovenTx: any, _config: any) {
-      return unprovenTx.prove(provingProvider, CostModel.initialCostModel());
-    },
-  };
+  // that has proveTx(). Use createProofProvider from midnight-js-types like the 1AM template
+  const provingProvider = await api.getProvingProvider(zkConfigProvider);
+  const proofProvider = createProofProvider(provingProvider);
 
   const privateStateProvider = createPrivateStateProvider();
 
-  const walletProvider: WalletProvider = {
+   const walletProvider: WalletProvider = {
     balanceTx: async (tx: any) => {
-      const txHex = toHex(tx.serialize());
-      const balanced = await api.balanceUnsealedTransaction(txHex);
-      return (await import('@midnight-ntwrk/ledger-v8')).Transaction.deserialize('signature', 'proof', 'binding', fromHex(balanced.tx));
+      try {
+        const txHex = toHex(tx.serialize());
+        console.log('[walletProvider] Balancing tx, hex length:', txHex.length);
+        const balanced = await api.balanceUnsealedTransaction(txHex);
+        console.log('[walletProvider] Tx balanced, result hex length:', balanced.tx.length);
+        const { Transaction } = await import('@midnight-ntwrk/ledger-v8');
+        const bytes = new Uint8Array(balanced.tx.match(/.{2}/g).map((b: string) => parseInt(b, 16)));
+        return Transaction.deserialize('signature', 'proof', 'binding', bytes);
+      } catch (e: any) {
+        console.error('[walletProvider] Balance error:', e);
+        throw e;
+      }
     },
     getCoinPublicKey: () => shieldedAddress.shieldedCoinPublicKey,
     getEncryptionPublicKey: () => shieldedAddress.shieldedEncryptionPublicKey,
@@ -124,9 +136,16 @@ export async function createConnectedSession(api: any): Promise<ConnectedSession
 
   const midnightProvider: MidnightProvider = {
     submitTx: async (tx: any) => {
-      const txHex = toHex(tx.serialize());
-      const txId = await api.submitTransaction(txHex);
-      return txId ?? '';
+      try {
+        const txHex = toHex(tx.serialize());
+        console.log('[midnightProvider] Submitting tx, hex length:', txHex.length);
+        const txId = await api.submitTransaction(txHex);
+        console.log('[midnightProvider] Tx submitted, id:', txId);
+        return txId ?? '';
+      } catch (e: any) {
+        console.error('[midnightProvider] Submission error:', e);
+        throw e;
+      }
     },
   };
 
@@ -137,11 +156,6 @@ export async function createConnectedSession(api: any): Promise<ConnectedSession
   // Use native WebSocket in browser environments
   const WS = typeof window !== 'undefined' ? window.WebSocket : undefined;
   const publicDataProvider = indexerPublicDataProvider(indexerQueryURL, indexerSubURL, WS);
-
-  // Use FetchZkConfigProvider for browser-compatible ZK config loading
-  // Use absolute URL based on current origin
-  const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
-  const zkConfigProvider = new FetchZkConfigProvider(`${baseUrl}/api/zk-config`);
 
   return {
     api,

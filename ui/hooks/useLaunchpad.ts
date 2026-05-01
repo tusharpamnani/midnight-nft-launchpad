@@ -1,7 +1,7 @@
 'use client';
 import { useState, useCallback, useEffect } from 'react';
 import { CollectionInfo, NFTInfo } from '../types/nft';
-import { createUnprovenCallTx, submitTxAsync, createUnprovenDeployTx } from '@midnight-ntwrk/midnight-js-contracts';
+import { createUnprovenCallTx, submitCallTx, createUnprovenDeployTx } from '@midnight-ntwrk/midnight-js-contracts';
 import { sampleSigningKey } from '@midnight-ntwrk/compact-runtime';
 import { getCompiledNFTContract } from '../lib/contracts';
 import { UnshieldedAddress, MidnightBech32m } from '@midnight-ntwrk/wallet-sdk-address-format';
@@ -129,15 +129,17 @@ export function useLaunchpad() {
         },
       );
 
-
-
-      const txId = await submitTxAsync(session.providers, {
-        unprovenTx: callTxData.private.unprovenTx,
+      // Use submitCallTx which handles prove -> balance -> submit automatically
+      const result = await submitCallTx(session.providers, {
+        compiledContract,
+        contractAddress: collectionAddress,
         circuitId: 'mint',
+        args: [metadataBytes],
       });
 
+      console.log('[mint] Tx submitted:', result.public.txHash);
       await fetchData();
-      return { success: true, txId };
+      return { success: true, txId: result.public.txHash };
     } catch (e: any) {
       console.error('Error minting:', e);
       return { success: false, error: e.message };
