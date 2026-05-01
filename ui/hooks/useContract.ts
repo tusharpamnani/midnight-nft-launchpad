@@ -1,9 +1,11 @@
 'use client';
-
 import { useState, useCallback, useEffect } from 'react';
 import { DeploymentInfo } from '../types/nft';
 import { createUnprovenDeployTx, submitTxAsync } from '@midnight-ntwrk/midnight-js-contracts';
 import { sampleSigningKey } from '@midnight-ntwrk/compact-runtime';
+import { getCompiledNFTContract } from '../lib/contracts';
+import { UnshieldedAddress, MidnightBech32m } from '@midnight-ntwrk/wallet-sdk-address-format';
+
 
 export function useContract() {
   const [deployment, setDeployment] = useState<DeploymentInfo | null>(null);
@@ -45,21 +47,31 @@ export function useContract() {
     try {
       addLog('Generating ZK proof and submitting to network...');
 
-      // Import the contract module
-      const contractModule = await import('../src/contracts/contract/contract/index.js');
-      
+      // Get the caller address bytes from the session
+      const networkId = session.config.networkId;
+      const callerAddressBytes = MidnightBech32m.parse(session.unshieldedAddress)
+        .decode(UnshieldedAddress, networkId).data;
+
+      // Use the utility to get the properly wrapped compiled contract
+      const compiledContract = await getCompiledNFTContract('contract', callerAddressBytes);
+
       const deployTxData = await createUnprovenDeployTx(
         {
           zkConfigProvider: session.providers.zkConfigProvider,
           walletProvider: session.providers.walletProvider,
         },
         {
-          compiledContract: contractModule,
+          compiledContract,
           args: [], 
           signingKey: sampleSigningKey(),
-          initialPrivateState: { collection: [] }, // Base contract has collection state
         },
       );
+
+
+
+
+
+
 
       addLog(`Contract address: ${deployTxData.public.contractAddress}`);
 
@@ -77,15 +89,15 @@ export function useContract() {
         deployTxData.private.signingKey,
       );
 
-      // Save deployment address to server
-      await fetch('/api/deployment', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ 
-          contractAddress: deployTxData.public.contractAddress, 
-          network: 'preprod' 
-        })
-      });
+       // Save deployment address to server
+       await fetch('/api/deployment', {
+         method: 'POST',
+         headers: { 'Content-Type': 'application/json' },
+         body: JSON.stringify({ 
+           contractAddress: deployTxData.public.contractAddress, 
+           network: 'preprod' 
+         })
+       });
 
       addLog(`Deployment complete! TxID: ${txId}`);
       addLog('Contract deployed! 🎉');
@@ -106,5 +118,7 @@ export function useContract() {
     log,
     addLog,
     isDeploying,
+    refreshDeployment: fetchDeploymentState,
   };
 }
+

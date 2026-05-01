@@ -20,19 +20,27 @@ export async function GET() {
   return new Response(JSON.stringify(null));
 }
 
-export async function POST() {
+export async function POST(request) {
   try {
-    const { stdout, stderr } = await execAsync("npx tsx src/cli.ts deploy", {
-      cwd: ROOT_DIR,
-      env: {
-        ...process.env,
-        PRIVATE_STATE_PASSWORD: process.env.PRIVATE_STATE_PASSWORD || "Str0ng!MidnightLocal",
-      },
-      timeout: 180000,
-    });
-    return new Response(JSON.stringify({ success: true, stdout, stderr }));
+    const data = await request.json();
+    const { contractAddress, network } = data;
+    
+    if (!contractAddress) {
+      return new Response(JSON.stringify({ error: 'Missing contractAddress' }), { status: 400 });
+    }
+
+    const deploymentInfo = {
+      contractAddress,
+      network: network || 'preprod',
+      deployedAt: new Date().toISOString()
+    };
+
+    fs.writeFileSync(DEPLOY_FILE, JSON.stringify(deploymentInfo, null, 2));
+    
+    return new Response(JSON.stringify({ success: true, deploymentInfo }));
   } catch (err) {
     return new Response(JSON.stringify({ error: err.message }), { status: 500 });
   }
 }
+
 

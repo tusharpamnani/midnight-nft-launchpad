@@ -5,6 +5,7 @@ import { promisify } from "util";
 import fs from "fs";
 import path from "path";
 import { config } from "dotenv";
+import crypto from "crypto";
 
 config({ path: path.resolve(process.cwd(), "..", ".env") });
 
@@ -46,12 +47,24 @@ export async function GET(request) {
         return new Response(JSON.stringify([]));
       }
 
-      case 'collections': {
+       case 'collections': {
+        const collections = [];
         if (fs.existsSync(STATE_FILE)) {
           const state = JSON.parse(fs.readFileSync(STATE_FILE, 'utf-8'));
-          return new Response(JSON.stringify(state.collections || []));
+          if (state.collections) {
+            for (const col of state.collections) {
+              // Normalize: support both `address` and `contractAddress` field names
+              collections.push({
+                address: col.address || col.contractAddress,
+                name: col.name || 'Unnamed',
+                description: col.description || '',
+                maxSupply: col.maxSupply || 0,
+                currentSupply: col.currentSupply || 0,
+              });
+            }
+          }
         }
-        return new Response(JSON.stringify([]));
+        return new Response(JSON.stringify(collections));
       }
 
       case 'deployment': {
@@ -104,10 +117,24 @@ export async function POST(request) {
         return new Response(JSON.stringify(res));
       }
 
-      case 'verify': {
-        const { tokenId } = params;
-        const res = await runCliAction("verify", tokenId);
-        return new Response(JSON.stringify(res));
+       case 'add-collection': {
+        const { address, name, description } = params;
+        let state = { collections: [], ownedTokens: {} };
+        if (fs.existsSync(STATE_FILE)) {
+          state = JSON.parse(fs.readFileSync(STATE_FILE, 'utf-8'));
+        }
+        if (!state.collections) state.collections = [];
+        state.collections.push({
+          id: crypto.randomUUID(),
+          name: name || 'Unnamed',
+          description: description || '',
+          maxSupply: 0,
+          contractAddress: address,
+          creatorAddress: '',
+          createdAt: new Date().toISOString()
+        });
+        fs.writeFileSync(STATE_FILE, JSON.stringify(state, null, 2));
+        return new Response(JSON.stringify({ success: true }));
       }
 
       default:

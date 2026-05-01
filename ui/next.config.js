@@ -30,10 +30,23 @@ const nextConfig = {
       asyncWebAssembly: true,
     };
 
-    // Add WASM file support
-    config.module.rules.push({
-      test: /\.wasm$/,
-      type: 'webassembly/async',
+    // Fix: isomorphic-ws exports default only, but midnight module expects .WebSocket
+    // Create a shim that re-exports with WebSocket as a named export
+    config.resolve.alias = {
+      ...config.resolve.alias,
+      'isomorphic-ws': require.resolve('isomorphic-ws/node.js'),
+    };
+
+    // Handle WASM files properly - use webassembly/async type
+    // and suppress the async/await warning for browser targets
+    config.module.rules = config.module.rules.map(rule => {
+      if (rule.test && rule.test.toString().includes('wasm')) {
+        return {
+          ...rule,
+          type: 'webassembly/async',
+        };
+      }
+      return rule;
     });
 
     // Only add fallbacks for client-side
@@ -57,8 +70,9 @@ const nextConfig = {
     return config;
   },
   env: {
-    MIDNIGHT_INDEXER_URI: process.env.MIDNIGHT_INDEXER_URI || 'https://indexer-2.preview.midnight.network',
-    MIDNIGHT_NODE_URI: process.env.MIDNIGHT_NODE_URI || 'wss://rpc-2.preview.midnight.network',
+    MIDNIGHT_INDEXER_URI: process.env.MIDNIGHT_INDEXER_URI || 'https://indexer.preprod.midnight.network/api/v4/graphql',
+    MIDNIGHT_INDEXER_WS_URI: process.env.MIDNIGHT_INDEXER_WS_URI || 'wss://indexer.preprod.midnight.network/api/v4/graphql/ws',
+    MIDNIGHT_NODE_URI: process.env.MIDNIGHT_NODE_URI || 'wss://rpc.preprod.midnight.network',
   },
 };
 

@@ -12,10 +12,16 @@ import { useLaunchpad } from '../hooks/useLaunchpad';
 import { Terminal, RefreshCw, ShieldCheck, Lock, PlusCircle, LayoutGrid, Box, Rocket } from 'lucide-react';
 
 export default function Home() {
-  const { deployment, deploy, log, addLog, isDeploying } = useContract();
+  const { deployment, deploy, log, addLog, isDeploying, refreshDeployment } = useContract();
   const { isConnected, address, session, walletType } = useWallet();
   const [selectedContract, setSelectedContract] = useState<string | null>(null);
   const { collections, userNfts, createCollection, mint, transfer, verify, isLoading, refreshData } = useLaunchpad();
+
+  useEffect(() => {
+    if (isConnected) {
+      refreshDeployment();
+    }
+  }, [isConnected, refreshDeployment]);
 
   useEffect(() => {
     if (selectedContract && deployment?.contractAddress && selectedContract === deployment.contractAddress) {
@@ -151,6 +157,16 @@ export default function Home() {
                     <Box className="w-3.5 h-3.5 text-violet-400" />
                     <span className="text-[10px] font-mono text-zinc-400">{collections.length} factories</span>
                   </div>
+                  {!deployment && (
+                    <button
+                      onClick={handleDeploy}
+                      disabled={isDeploying}
+                      className="flex items-center gap-2 px-4 py-1.5 border border-amber-500/30 bg-amber-500/10 hover:bg-amber-500/20 text-[10px] font-mono text-amber-400 transition-all animate-pulse"
+                    >
+                      <Rocket className="w-3.5 h-3.5" />
+                      Deploy Base Factory
+                    </button>
+                  )}
                   {selectedContract && (
                     <div className="flex items-center gap-2 px-3 py-1.5 border border-violet-500/20 bg-violet-500/[0.04]">
                       <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" />

@@ -5,15 +5,19 @@ import {
   type MidnightProvider,
   type PrivateStateProvider,
   type WalletProvider,
+  type ProofProvider,
 } from '@midnight-ntwrk/midnight-js-types';
+import { indexerPublicDataProvider } from '@midnight-ntwrk/midnight-js-indexer-public-data-provider';
+import { FetchZkConfigProvider } from '@midnight-ntwrk/midnight-js-fetch-zk-config-provider';
 
 export type ConnectedSession = {
   api: any;
   config: any;
   providers: {
     privateStateProvider: PrivateStateProvider<string, any>;
+    publicDataProvider: any;
     zkConfigProvider: any;
-    proofProvider: any;
+    proofProvider: ProofProvider;
     walletProvider: WalletProvider;
     midnightProvider: MidnightProvider;
   };
@@ -96,8 +100,15 @@ export async function createConnectedSession(api: any): Promise<ConnectedSession
 
   setNetworkId(config.networkId);
 
-  // Use the wallet's proving provider directly (it already handles ZK config)
-  const proofProvider = await api.getProvingProvider();
+  // Wallet returns a ProvingProvider (circuit-level), but we need a ProofProvider (transaction-level)
+  // that has proveTx(). Wrap it accordingly.
+  const provingProvider = await api.getProvingProvider();
+  const { CostModel } = await import('@midnight-ntwrk/ledger-v8');
+  const proofProvider: ProofProvider = {
+    async proveTx(unprovenTx: any, _config: any) {
+      return unprovenTx.prove(provingProvider, CostModel.initialCostModel());
+    },
+  };
 
   const privateStateProvider = createPrivateStateProvider();
 
@@ -119,20 +130,25 @@ export async function createConnectedSession(api: any): Promise<ConnectedSession
     },
   };
 
-  // ZK config provider that fetches from server API
-  const zkConfigProvider = {
-    getZkConfig: async (circuitId: string) => {
-      const response = await fetch(`/api/zk-config?circuitId=${circuitId}`);
-      if (!response.ok) throw new Error('Failed to fetch ZK config');
-      return response.json();
-    }
-  };
+  // Public data provider for querying on-chain state (required by createUnprovenCallTx)
+  // Uses the indexer public data provider from the Midnight indexer
+  const indexerQueryURL = process.env.NEXT_PUBLIC_INDEXER_URI || 'https://indexer.preprod.midnight.network/api/v4/graphql';
+  const indexerSubURL = process.env.NEXT_PUBLIC_INDEXER_WS_URI || 'wss://indexer.preprod.midnight.network/api/v4/graphql/ws';
+  // Use native WebSocket in browser environments
+  const WS = typeof window !== 'undefined' ? window.WebSocket : undefined;
+  const publicDataProvider = indexerPublicDataProvider(indexerQueryURL, indexerSubURL, WS);
+
+  // Use FetchZkConfigProvider for browser-compatible ZK config loading
+  // Use absolute URL based on current origin
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'http://localhost:3000';
+  const zkConfigProvider = new FetchZkConfigProvider(`${baseUrl}/api/zk-config`);
 
   return {
     api,
     config,
     providers: {
       privateStateProvider,
+      publicDataProvider,
       zkConfigProvider,
       proofProvider,
       walletProvider,
