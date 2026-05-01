@@ -1,11 +1,11 @@
 'use client';
 
-import { Collection } from '../hooks/useLaunchpad';
-import { Box, Database, CheckCircle } from 'lucide-react';
+import { CollectionInfo } from '../types/nft';
+import { Box, CheckCircle } from 'lucide-react';
 
 interface CollectionListProps {
-  collections: Collection[];
-  onSelect: (addr: string) => void;
+  collections: CollectionInfo[];
+  onSelect: (address: string) => void;
   selectedAddress: string | null;
 }
 
@@ -13,7 +13,7 @@ export default function CollectionList({ collections, onSelect, selectedAddress 
   if (collections.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-20 border border-dashed border-white/[0.04] text-center">
-        <Database className="w-8 h-8 text-zinc-800 mb-4" />
+        <Box className="w-8 h-8 text-zinc-800 mb-4" />
         <p className="text-[10px] font-mono tracking-[0.2em] text-zinc-700 uppercase">No factories deployed</p>
         <p className="text-[10px] font-mono text-zinc-800 mt-1">Deploy below to get started</p>
       </div>
@@ -23,12 +23,12 @@ export default function CollectionList({ collections, onSelect, selectedAddress 
   return (
     <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
       {collections.map((col) => {
-        const isSelected = selectedAddress === col.contractAddress;
+        const isSelected = selectedAddress === col.address;
 
         return (
           <button
-            key={col.contractAddress}
-            onClick={() => onSelect(col.contractAddress)}
+            key={col.address}
+            onClick={() => onSelect(col.address)}
             className={`group relative text-left p-6 border transition-all duration-200 active:scale-[0.99] ${
               isSelected
                 ? 'border-violet-500/30 bg-violet-500/[0.03]'
@@ -74,7 +74,7 @@ export default function CollectionList({ collections, onSelect, selectedAddress 
                   </div>
                 </div>
                 <code className="text-[9px] font-mono text-zinc-700 block">
-                  {col.contractAddress.slice(0, 10)}…
+                  {col.address.slice(0, 10)}…
                 </code>
               </div>
             </div>

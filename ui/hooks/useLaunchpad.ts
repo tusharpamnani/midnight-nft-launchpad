@@ -1,113 +1,192 @@
 'use client';
 
 import { useState, useCallback, useEffect } from 'react';
-import { OwnedNFT } from '../types/nft';
-
-export interface Collection {
-  id: string;
-  name: string;
-  description: string;
-  maxSupply: number;
-  contractAddress: string;
-  creatorAddress: string;
-  createdAt: string;
-}
+import { CollectionInfo, NFTInfo } from '../types/nft';
+import { createUnprovenCallTx, submitTxAsync, createUnprovenDeployTx } from '@midnight-ntwrk/midnight-js-contracts';
+import { sampleSigningKey } from '@midnight-ntwrk/compact-runtime';
 
 export function useLaunchpad() {
-  const [collections, setCollections] = useState<Collection[]>([]);
-  const [userNfts, setUserNfts] = useState<OwnedNFT[]>([]);
+  const [collections, setCollections] = useState<CollectionInfo[]>([]);
+  const [userNfts, setUserNfts] = useState<NFTInfo[]>([]);
   const [isLoading, setIsLoading] = useState(false);
 
-  const refreshData = useCallback(async () => {
+  const fetchData = useCallback(async () => {
     try {
-      const [colsRes, nftsRes] = await Promise.all([
+      const [colRes, nftRes] = await Promise.all([
         fetch('/api/midnight?action=collections'),
         fetch('/api/midnight?action=owned-nfts')
       ]);
-      const [cols, nfts] = await Promise.all([colsRes.json(), nftsRes.json()]);
-      setCollections(cols);
-      setUserNfts(nfts);
+
+      if (colRes.ok) {
+        const data = await colRes.json();
+        setCollections(data.collections || []);
+      }
+
+      if (nftRes.ok) {
+        const data = await nftRes.json();
+        setUserNfts(data.nfts || []);
+      }
     } catch (e) {
-      console.error("Failed to refresh launchpad data", e);
+      console.error('Error fetching data:', e);
     }
   }, []);
 
   useEffect(() => {
-    refreshData();
-    const interval = setInterval(refreshData, 10000);
-    return () => clearInterval(interval);
-  }, [refreshData]);
+    fetchData();
+  }, [fetchData]);
 
-  const createCollection = useCallback(async (name: string, description: string, maxSupply: number) => {
+  const createCollection = useCallback(async (session: any, name: string, description: string, maxSupply: number) => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/midnight', {
+      const contractModule = await import('../src/contracts/collection/contract/index.js');
+      const { Contract: CompiledContract } = contractModule;
+      
+      const deployTxData = await createUnprovenDeployTx(
+        {
+          zkConfigProvider: session.providers.zkConfigProvider,
+          walletProvider: session.providers.walletProvider,
+        },
+        {
+          compiledContract: { Contract: CompiledContract },
+          args: [name, description, maxSupply],
+          signingKey: sampleSigningKey(),
+        },
+      );
+
+      const txId = await submitTxAsync(
+        session.providers,
+        {
+          unprovenTx: deployTxData.private.unprovenTx,
+        },
+      );
+
+      // Save signing key
+      await session.providers.privateStateProvider.setContractAddress(deployTxData.public.contractAddress);
+      await session.providers.privateStateProvider.setSigningKey(
+        deployTxData.public.contractAddress,
+        deployTxData.private.signingKey,
+      );
+
+      // Register in base contract via server API
+      await fetch('/api/midnight', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'create-collection', name, description, maxSupply })
+        body: JSON.stringify({
+          action: 'add-collection',
+          address: deployTxData.public.contractAddress
+        })
       });
-      await refreshData();
-      return await res.json();
+
+      await fetchData();
+      return { success: true, contractAddress: deployTxData.public.contractAddress };
     } catch (e: any) {
-      console.error('Collection creation failed:', e);
-      throw e;
+      console.error('Error creating collection:', e);
+      return { success: false, error: e.message };
     } finally {
       setIsLoading(false);
     }
-  }, [refreshData]);
+  }, [fetchData]);
 
-  const mint = useCallback(async (collectionAddress: string, metadata: string) => {
+  const mint = useCallback(async (session: any, collectionAddress: string, metadata: string) => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/midnight', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'mint-from-collection', collectionAddress, metadata })
+      const contractModule = await import('../src/contracts/collection/contract/index.js');
+      const { Contract: CompiledContract } = contractModule;
+      
+      const metadataHash = Buffer.from(metadata).toString('hex');
+      
+      const callTxData = await createUnprovenCallTx(
+        session.providers,
+        {
+          compiledContract: { Contract: CompiledContract },
+          contractAddress: collectionAddress,
+          circuitId: 'mint',
+          args: [metadataHash],
+        },
+      );
+
+      const txId = await submitTxAsync(session.providers, {
+        unprovenTx: callTxData.private.unprovenTx,
+        circuitId: 'mint',
       });
-      await refreshData();
-      return await res.json();
+
+      await fetchData();
+      return { success: true, txId };
     } catch (e: any) {
-      console.error('Mint failed:', e);
-      throw e;
+      console.error('Error minting:', e);
+      return { success: false, error: e.message };
     } finally {
       setIsLoading(false);
     }
-  }, [refreshData]);
+  }, [fetchData]);
 
-  const transfer = useCallback(async (tokenId: string, recipient: string) => {
+  const transfer = useCallback(async (session: any, tokenId: string, recipient: string) => {
     setIsLoading(true);
     try {
-      const res = await fetch('/api/midnight', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'transfer', tokenId, recipient })
+      const nft = userNfts.find(n => n.id === tokenId);
+      if (!nft?.collectionAddress) {
+        throw new Error('Cannot find collection for this token');
+      }
+
+      const contractModule = await import('../src/contracts/collection/contract/index.js');
+      const { Contract: CompiledContract } = contractModule;
+      
+      const callTxData = await createUnprovenCallTx(
+        session.providers,
+        {
+          compiledContract: { Contract: CompiledContract },
+          contractAddress: nft.collectionAddress,
+          circuitId: 'transfer',
+          args: [tokenId, recipient],
+        },
+      );
+
+      await submitTxAsync(session.providers, {
+        unprovenTx: callTxData.private.unprovenTx,
+        circuitId: 'transfer',
       });
-      await refreshData();
-      return await res.json();
+
+      await fetchData();
+      return { success: true };
     } catch (e: any) {
-      console.error('Transfer failed:', e);
-      throw e;
+      console.error('Error transferring:', e);
+      return { success: false, error: e.message };
     } finally {
       setIsLoading(false);
     }
-  }, [refreshData]);
+  }, [userNfts, fetchData]);
 
-  const verify = useCallback(async (tokenId: string) => {
-    setIsLoading(true);
+  const verify = useCallback(async (session: any, tokenId: string) => {
     try {
-      const res = await fetch('/api/midnight', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ action: 'verify', tokenId })
+      const nft = userNfts.find(n => n.id === tokenId);
+      if (!nft?.collectionAddress) {
+        throw new Error('Cannot find collection for this token');
+      }
+
+      const contractModule = await import('../src/contracts/collection/contract/index.js');
+      const { Contract: CompiledContract } = contractModule;
+      
+      const callTxData = await createUnprovenCallTx(
+        session.providers,
+        {
+          compiledContract: { Contract: CompiledContract },
+          contractAddress: nft.collectionAddress,
+          circuitId: 'verify',
+          args: [tokenId],
+        },
+      );
+
+      const result = await submitTxAsync(session.providers, {
+        unprovenTx: callTxData.private.unprovenTx,
+        circuitId: 'verify',
       });
-      return await res.json();
+
+      return { success: true, result };
     } catch (e: any) {
-      console.error('Verify failed:', e);
-      throw e;
-    } finally {
-      setIsLoading(false);
+      console.error('Error verifying:', e);
+      return { success: false, error: e.message };
     }
-  }, []);
+  }, [userNfts]);
 
   return {
     collections,
@@ -117,6 +196,6 @@ export function useLaunchpad() {
     transfer,
     verify,
     isLoading,
-    refreshData
+    refreshData: fetchData,
   };
 }

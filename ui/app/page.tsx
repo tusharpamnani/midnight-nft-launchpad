@@ -13,7 +13,7 @@ import { Terminal, RefreshCw, ShieldCheck, Lock, PlusCircle, LayoutGrid, Box, Ro
 
 export default function Home() {
   const { deployment, deploy, log, addLog, isDeploying } = useContract();
-  const { isConnected, address, api: walletApi } = useWallet();
+  const { isConnected, address, session, walletType } = useWallet();
   const [selectedContract, setSelectedContract] = useState<string | null>(null);
   const { collections, userNfts, createCollection, mint, transfer, verify, isLoading, refreshData } = useLaunchpad();
 
@@ -24,8 +24,34 @@ export default function Home() {
   }, [selectedContract, deployment]);
 
   const handleDeploy = async () => {
-    if (!walletApi) return;
-    await deploy(walletApi);
+    if (!session) return;
+    await deploy(session);
+  };
+
+  const handleCreateCollection = async (name: string, description: string, maxSupply: number) => {
+    if (!session) return { success: false, error: 'No wallet session' };
+    return createCollection(session, name, description, maxSupply);
+  };
+
+  const handleMint = async (metadata: string) => {
+    if (!session || !selectedContract) return { success: false, error: 'No session or contract' };
+    return mint(session, selectedContract, metadata);
+  };
+
+  const handleVerify = async (tokenId: string) => {
+    if (!session) return { success: false, error: 'No wallet session' };
+    addLog(`Preparing ZK proof to verify ownership of Token #${tokenId}...`);
+    const res = await verify(session, tokenId);
+    if (res.success) addLog(`✅ Ownership verified on-chain via ZK proof! ID #${tokenId} is truly yours.`);
+    return res;
+  };
+
+  const handleTransfer = async (tokenId: string, recipient: string) => {
+    if (!session) return { success: false, error: 'No wallet session' };
+    addLog(`Transferring Token #${tokenId} to ${recipient}...`);
+    const res = await transfer(session, tokenId, recipient);
+    if (res.success) addLog(`✅ Token #${tokenId} successfully transferred and removed from inventory.`);
+    return res;
   };
 
   return (
@@ -213,7 +239,7 @@ export default function Home() {
                         </p>
                         <button
                           onClick={handleDeploy}
-                          disabled={isDeploying || !walletApi}
+                          disabled={isDeploying || !session}
                           className="w-full flex items-center justify-center gap-3 bg-violet-600 hover:bg-violet-500 disabled:opacity-40 disabled:cursor-not-allowed text-white font-mono text-[11px] tracking-[0.2em] uppercase py-4 transition-all active:scale-[0.99]"
                         >
                           {isDeploying ? (
@@ -240,7 +266,7 @@ export default function Home() {
                       <span className="text-[9px] tracking-[0.3em] text-zinc-600 font-mono uppercase">03 / Factory</span>
                       <h2 className="text-xl font-bold font-mono text-white tracking-tight">New Collection</h2>
                     </div>
-                    <LaunchpadForm onCreate={createCollection} isLoading={isLoading} addLog={addLog} />
+                    <LaunchpadForm onCreate={handleCreateCollection} isLoading={isLoading} addLog={addLog} />
                   </section>
                 )}
 
@@ -252,7 +278,7 @@ export default function Home() {
                         <span className="text-[9px] tracking-[0.3em] text-zinc-600 font-mono uppercase">02 / Protocol</span>
                         <h2 className="text-xl font-bold font-mono text-white tracking-tight">Mint NFT</h2>
                       </div>
-                      <MintForm onMint={(meta) => mint(selectedContract, meta)} isLoading={isLoading} addLog={addLog} />
+                      <MintForm onMint={handleMint} isLoading={isLoading} addLog={addLog} />
                     </section>
 
                     <section className="space-y-8">
@@ -262,17 +288,8 @@ export default function Home() {
                       </div>
                       <NFTList
                         nfts={userNfts.filter(n => n.collectionAddress === selectedContract)}
-                        onVerify={async (id) => {
-                          addLog(`Preparing ZK proof to verify ownership of Token #${id}...`);
-                          const res = await verify(id);
-                          if (res.success) addLog(`✅ Ownership verified on-chain via ZK proof! ID #${id} is truly yours.`);
-                        }}
-                        onTransfer={async (id, rec) => {
-                          if (!rec) return;
-                          addLog(`Transferring Token #${id} to ${rec}...`);
-                          const res = await transfer(id, rec);
-                          if (res.success) addLog(`✅ Token #${id} successfully transferred and removed from inventory.`);
-                        }}
+                        onVerify={handleVerify}
+                        onTransfer={handleTransfer}
                       />
 
                     </section>

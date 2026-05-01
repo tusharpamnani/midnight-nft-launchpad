@@ -2,10 +2,10 @@
 
 import { useState } from 'react';
 import { Tag, ShieldCheck, ArrowUpRight } from 'lucide-react';
-import { OwnedNFT } from '../types/nft';
+import { NFTInfo } from '../types/nft';
 
 interface NFTListProps {
-  nfts: OwnedNFT[];
+  nfts: NFTInfo[];
   onVerify: (id: string) => Promise<any>;
   onTransfer: (id: string, recipient: string) => Promise<any>;
 }
@@ -45,11 +45,11 @@ export default function NFTList({ nfts, onVerify, onTransfer }: NFTListProps) {
       {nfts.map((nft) => {
         let meta: any = {};
         try { meta = JSON.parse(nft.metadata); }
-        catch { meta = { name: `NFT #${nft.tokenId}`, description: nft.metadata }; }
+        catch { meta = { name: `NFT #${nft.id}`, description: nft.metadata }; }
 
         return (
           <div
-            key={nft.tokenId}
+            key={nft.id}
             className="group relative flex flex-col border border-white/[0.05] bg-white/[0.01] hover:border-white/10 hover:bg-white/[0.02] transition-all duration-200"
           >
             {/* Corner accents on hover */}
@@ -69,7 +69,7 @@ export default function NFTList({ nfts, onVerify, onTransfer }: NFTListProps) {
                 <div className="absolute inset-0 bg-gradient-to-t from-[#080808] via-transparent to-transparent" />
                 {/* Token ID badge */}
                 <div className="absolute bottom-3 left-3 flex items-center gap-1.5 bg-black/70 border border-white/[0.08] px-2 py-1">
-                  <span className="text-[9px] font-mono text-zinc-500 tracking-widest">#{nft.tokenId}</span>
+                  <span className="text-[9px] font-mono text-zinc-500 tracking-widest">#{nft.id}</span>
                 </div>
               </div>
             )}
@@ -78,18 +78,18 @@ export default function NFTList({ nfts, onVerify, onTransfer }: NFTListProps) {
               {/* Header */}
               <div className="flex items-start justify-between gap-2">
                 <div className="min-w-0">
-                  <h4 className="text-sm font-bold font-mono text-white truncate">{meta.name || `NFT #${nft.tokenId}`}</h4>
+                  <h4 className="text-sm font-bold font-mono text-white truncate">{meta.name || `NFT #${nft.id}`}</h4>
                   {!meta.image && (
-                    <span className="text-[9px] font-mono text-zinc-700">#{nft.tokenId}</span>
+                    <span className="text-[9px] font-mono text-zinc-700">#{nft.id}</span>
                   )}
                 </div>
                 <button
-                  onClick={() => handleVerify(nft.tokenId)}
-                  disabled={verifying[nft.tokenId]}
+                  onClick={() => handleVerify(nft.id)}
+                  disabled={verifying[nft.id]}
                   title="Verify ZK Proof"
                   className="w-7 h-7 border border-white/[0.05] flex items-center justify-center text-zinc-700 hover:text-emerald-400 hover:border-emerald-500/20 transition-all shrink-0"
                 >
-                  {verifying[nft.tokenId]
+                  {verifying[nft.id]
                     ? <div className="w-3 h-3 border border-white/20 border-t-white rounded-full animate-spin" />
                     : <ShieldCheck className="w-3.5 h-3.5" />}
                 </button>
@@ -105,7 +105,7 @@ export default function NFTList({ nfts, onVerify, onTransfer }: NFTListProps) {
               {/* Hash */}
               <div className="space-y-1">
                 <span className="text-[8px] tracking-[0.2em] font-mono text-zinc-700 uppercase">Commitment Hash</span>
-                <p className="text-[9px] font-mono text-zinc-700 truncate">{nft.metadataHash}</p>
+                <p className="text-[9px] font-mono text-zinc-700 truncate">{nft.metadata}</p>
               </div>
 
               {/* Explorer link */}
@@ -123,7 +123,7 @@ export default function NFTList({ nfts, onVerify, onTransfer }: NFTListProps) {
 
               {/* Transfer */}
               <div className="pt-2 mt-auto">
-                {selectedNFT === nft.tokenId ? (
+                {selectedNFT === nft.id ? (
                   <div className="space-y-2">
                     <input
                       type="text"
@@ -134,7 +134,7 @@ export default function NFTList({ nfts, onVerify, onTransfer }: NFTListProps) {
                     />
                     <div className="flex gap-2">
                       <button
-                        onClick={() => handleTransfer(nft.tokenId)}
+                        onClick={() => handleTransfer(nft.id)}
                         className="flex-1 bg-violet-600 hover:bg-violet-500 text-white text-[9px] font-mono tracking-widest uppercase py-2 transition-all"
                       >
                         Transfer
@@ -149,7 +149,7 @@ export default function NFTList({ nfts, onVerify, onTransfer }: NFTListProps) {
                   </div>
                 ) : (
                   <button
-                    onClick={() => setSelectedNFT(nft.tokenId)}
+                    onClick={() => setSelectedNFT(nft.id)}
                     className="w-full flex items-center justify-center gap-2 border border-white/[0.05] hover:border-white/10 text-zinc-600 hover:text-zinc-300 text-[9px] font-mono tracking-widest uppercase py-2 transition-all"
                   >
                     <ArrowUpRight className="w-3 h-3" />

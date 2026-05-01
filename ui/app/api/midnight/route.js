@@ -1,10 +1,10 @@
 "use server";
 
-const { exec } = require("child_process");
-const { promisify } = require("util");
-const fs = require("fs");
-const path = require("path");
-const { config } = require("dotenv");
+import { exec } from "child_process";
+import { promisify } from "util";
+import fs from "fs";
+import path from "path";
+import { config } from "dotenv";
 
 config({ path: path.resolve(process.cwd(), "..", ".env") });
 
@@ -13,6 +13,7 @@ const STATE_FILE = path.join(ROOT_DIR, 'local-state.json');
 const DEPLOY_FILE = path.join(ROOT_DIR, 'deployment.json');
 
 const execAsync = promisify(exec);
+
 
 async function runCliAction(command, ...args) {
   const formattedArgs = args.map(arg => 

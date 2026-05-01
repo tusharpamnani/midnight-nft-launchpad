@@ -1,16 +1,13 @@
 export interface NFTMetadata {
   name: string;
-  description?: string;
-  image?: string;
-  [key: string]: any;
+  description: string;
+  image: string;
+  attributes?: Array<{ trait_type: string; value: string }>;
 }
 
 export interface OwnedNFT {
-  tokenId: string;
-  metadata: string;
-  metadataHash: string;
-  mintedAt: string;
-  txId?: string;
+  id: string;
+  metadata: NFTMetadata;
   collectionAddress?: string;
 }
 
@@ -21,6 +18,26 @@ export interface DeploymentInfo {
 }
 
 export interface WalletState {
-  address: string | null;
   isConnected: boolean;
+  address: string | null;
+  walletType: '1am' | 'lace' | null;
+  isConnecting: boolean;
+  walletStatus: 'checking' | 'detected' | 'not-found';
+  api: any;
+}
+
+export interface CollectionInfo {
+  address: string;
+  name: string;
+  description: string;
+  maxSupply: number;
+  currentSupply: number;
+}
+
+export interface NFTInfo {
+  id: string;
+  metadata: string;
+  metadataHash?: string;
+  txId?: string;
+  collectionAddress?: string;
 }

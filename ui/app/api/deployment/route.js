@@ -1,10 +1,10 @@
 "use server";
 
-const { exec } = require("child_process");
-const { promisify } = require("util");
-const fs = require("fs");
-const path = require("path");
-const { config } = require("dotenv");
+import { exec } from "child_process";
+import { promisify } from "util";
+import fs from "fs";
+import path from "path";
+import { config } from "dotenv";
 
 config({ path: path.resolve(process.cwd(), "..", ".env") });
 
@@ -13,14 +13,14 @@ const DEPLOY_FILE = path.join(ROOT_DIR, 'deployment.json');
 
 const execAsync = promisify(exec);
 
-exports.GET = async function GET() {
+export async function GET() {
   if (fs.existsSync(DEPLOY_FILE)) {
     return new Response(JSON.stringify(JSON.parse(fs.readFileSync(DEPLOY_FILE, 'utf-8'))));
   }
   return new Response(JSON.stringify(null));
-};
+}
 
-exports.POST = async function POST() {
+export async function POST() {
   try {
     const { stdout, stderr } = await execAsync("npx tsx src/cli.ts deploy", {
       cwd: ROOT_DIR,
@@ -34,4 +34,5 @@ exports.POST = async function POST() {
   } catch (err) {
     return new Response(JSON.stringify({ error: err.message }), { status: 500 });
   }
-};
+}
+
