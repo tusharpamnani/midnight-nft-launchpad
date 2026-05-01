@@ -73,6 +73,8 @@ export function useLaunchpad() {
 
 
 
+      console.log('[createCollection] Using submitTxAsync with full providers...');
+      
       const txId = await submitTxAsync(
         session.providers,
         {
@@ -110,6 +112,10 @@ export function useLaunchpad() {
   const mint = useCallback(async (session: any, collectionAddress: string, metadata: string) => {
     setIsLoading(true);
     try {
+      if (!session?.api) {
+        return { success: false, error: 'No wallet session' };
+      }
+
       const networkId = session.config.networkId;
       const callerAddressBytes = MidnightBech32m.parse(session.unshieldedAddress)
         .decode(UnshieldedAddress, networkId).data;
@@ -119,17 +125,10 @@ export function useLaunchpad() {
       const metadataBytes = new Uint8Array(32);
       metadataBytes.set(new TextEncoder().encode(metadata).slice(0, 32));
       
-      const callTxData = await createUnprovenCallTx(
-        session.providers,
-        {
-          compiledContract,
-          contractAddress: collectionAddress,
-          circuitId: 'mint',
-          args: [metadataBytes],
-        },
-      );
-
-      // Use submitCallTx which handles prove -> balance -> submit automatically
+      console.log('[mint] Using submitCallTx...');
+      
+      // Try with submitCallTx - if it fails, the ZK proof is invalid
+      // This means the artifacts don't match the deployed contract
       const result = await submitCallTx(session.providers, {
         compiledContract,
         contractAddress: collectionAddress,
@@ -137,11 +136,11 @@ export function useLaunchpad() {
         args: [metadataBytes],
       });
 
-      console.log('[mint] Tx submitted:', result.public.txHash);
+      console.log('[mint] Success! Tx hash:', result.public.txHash);
       await fetchData();
       return { success: true, txId: result.public.txHash };
     } catch (e: any) {
-      console.error('Error minting:', e);
+      console.error('[mint] Error:', e);
       return { success: false, error: e.message };
     } finally {
       setIsLoading(false);

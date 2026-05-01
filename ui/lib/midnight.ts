@@ -1,5 +1,11 @@
 'use client';
 
+// Guard against server-side execution
+if (typeof window === 'undefined') {
+  console.warn('midnight.ts: Attempted to load on server-side, aborting');
+  throw new Error('midnight.ts should only be loaded on the client-side');
+}
+
 import { setNetworkId } from '@midnight-ntwrk/midnight-js-network-id';
 import {
   createProofProvider,
@@ -108,10 +114,17 @@ export async function createConnectedSession(api: any): Promise<ConnectedSession
     window.fetch.bind(window),
   );
 
-  // Wallet returns a ProvingProvider (circuit-level), but we need a ProofProvider (transaction-level)
-  // that has proveTx(). Use createProofProvider from midnight-js-types like the 1AM template
+  // Get the ProvingProvider from wallet
   const provingProvider = await api.getProvingProvider(zkConfigProvider);
-  const proofProvider = createProofProvider(provingProvider);
+  
+  // Create a proofProvider that has proveTx method
+  // submitCallTx expects proofProvider.proveTx(unprovenTx, config)
+  const proofProvider = {
+    async proveTx(unprovenTx: any, _config: any) {
+      const { CostModel } = await import('@midnight-ntwrk/ledger-v8');
+      return unprovenTx.prove(provingProvider, CostModel.initialCostModel());
+    },
+  };
 
   const privateStateProvider = createPrivateStateProvider();
 
@@ -121,10 +134,18 @@ export async function createConnectedSession(api: any): Promise<ConnectedSession
         const txHex = toHex(tx.serialize());
         console.log('[walletProvider] Balancing tx, hex length:', txHex.length);
         const balanced = await api.balanceUnsealedTransaction(txHex);
-        console.log('[walletProvider] Tx balanced, result hex length:', balanced.tx.length);
+        console.log('[walletProvider] Tx balanced, result:', balanced);
+        
+        // Check if balanced.tx is valid
+        if (!balanced || !balanced.tx) {
+          throw new Error('balanceUnsealedTransaction returned invalid result: ' + JSON.stringify(balanced));
+        }
+        
         const { Transaction } = await import('@midnight-ntwrk/ledger-v8');
         const bytes = new Uint8Array(balanced.tx.match(/.{2}/g).map((b: string) => parseInt(b, 16)));
-        return Transaction.deserialize('signature', 'proof', 'binding', bytes);
+        const balancedTx = Transaction.deserialize('signature', 'proof', 'binding', bytes);
+        console.log('[walletProvider] Balanced tx deserialized, new hex length:', toHex(balancedTx.serialize()).length);
+        return balancedTx;
       } catch (e: any) {
         console.error('[walletProvider] Balance error:', e);
         throw e;
@@ -134,11 +155,12 @@ export async function createConnectedSession(api: any): Promise<ConnectedSession
     getEncryptionPublicKey: () => shieldedAddress.shieldedEncryptionPublicKey,
   };
 
-  const midnightProvider: MidnightProvider = {
+   const midnightProvider: MidnightProvider = {
     submitTx: async (tx: any) => {
       try {
         const txHex = toHex(tx.serialize());
         console.log('[midnightProvider] Submitting tx, hex length:', txHex.length);
+        // Use the wallet's submitTransaction directly like 1AM template
         const txId = await api.submitTransaction(txHex);
         console.log('[midnightProvider] Tx submitted, id:', txId);
         return txId ?? '';
