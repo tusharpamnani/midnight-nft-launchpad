@@ -1,44 +1,51 @@
 "use server";
 
-import { config } from 'dotenv';
-import * as path from "path";
-import { exec } from "child_process";
-import { promisify } from "util";
-import * as fs from "fs";
+import { NextResponse } from "next/server";
 
-config({ path: path.resolve(process.cwd(), "..", ".env") });
+const ROOT_DIR = "./..";
+const STATE_FILE = `${ROOT_DIR}/local-state.json`;
+const DEPLOY_FILE = `${ROOT_DIR}/deployment.json`;
 
-const execAsync = promisify(exec);
+// Dynamic imports to prevent bundling Node.js modules
+async function getDeps() {
+  const { config } = await import("dotenv");
+  const path = await import("path");
+  const { exec } = await import("child_process");
+  const { promisify } = await import("util");
+  const fs = await import("fs");
 
-// Path to the workspace root (where the CLI scripts are)
-const ROOT_DIR = path.resolve(process.cwd(), "..");
-const STATE_FILE = path.join(ROOT_DIR, 'local-state.json');
+  config({ path: path.resolve(process.cwd(), "..", ".env") });
+
+  return {
+    execAsync: promisify(exec),
+    fs,
+    path,
+    ROOT_DIR,
+    STATE_FILE,
+    DEPLOY_FILE,
+  };
+}
 
 async function runCliAction(command: string, ...args: string[]) {
-  try {
-    const formattedArgs = args.map(arg => 
-      arg.includes(' ') || arg.includes('{') ? `'${arg}'` : arg
-    ).join(' ');
-    
-    console.log(`Executing: npx tsx src/cli.ts ${command} ${formattedArgs}`);
-    
-    const { stdout, stderr } = await execAsync(`npx tsx src/cli.ts ${command} ${formattedArgs}`, {
-      cwd: ROOT_DIR,
-      env: {
-        ...process.env,
-        PRIVATE_STATE_PASSWORD: process.env.PRIVATE_STATE_PASSWORD || "Str0ng!MidnightLocal",
-      },
-      timeout: 180000, // 3 mins for ZK
-    });
-    
-    return { success: true, stdout, stderr };
-  } catch (err: any) {
-    console.error(`CLI Action ${command} failed:`, err.message);
-    throw new Error(err.message || "Midnight operation failed. Check your wallet balance and proof-server.");
-  }
+  const { execAsync, ROOT_DIR } = await getDeps();
+  const formattedArgs = args.map(arg => 
+    arg.includes(' ') || arg.includes('{') ? `'${arg}'` : arg
+  ).join(' ');
+
+  const { stdout, stderr } = await execAsync(`npx tsx src/cli.ts ${command} ${formattedArgs}`, {
+    cwd: ROOT_DIR,
+    env: {
+      ...process.env,
+      PRIVATE_STATE_PASSWORD: process.env.PRIVATE_STATE_PASSWORD || "Str0ng!MidnightLocal",
+    },
+    timeout: 180000,
+  });
+
+  return { success: true, stdout, stderr };
 }
 
 export async function fetchOwnedNFTs() {
+  const { fs, STATE_FILE } = await getDeps();
   if (fs.existsSync(STATE_FILE)) {
     const state = JSON.parse(fs.readFileSync(STATE_FILE, 'utf-8'));
     return Object.values(state.ownedTokens || {});
@@ -47,11 +54,20 @@ export async function fetchOwnedNFTs() {
 }
 
 export async function fetchCollections() {
+  const { fs, STATE_FILE } = await getDeps();
   if (fs.existsSync(STATE_FILE)) {
     const state = JSON.parse(fs.readFileSync(STATE_FILE, 'utf-8'));
     return state.collections || [];
   }
   return [];
+}
+
+export async function getDeployment() {
+  const { fs, DEPLOY_FILE } = await getDeps();
+  if (fs.existsSync(DEPLOY_FILE)) {
+    return JSON.parse(fs.readFileSync(DEPLOY_FILE, 'utf-8'));
+  }
+  return null;
 }
 
 export async function actionCreateCollection(name: string, description: string, maxSupply: number) {
@@ -60,14 +76,6 @@ export async function actionCreateCollection(name: string, description: string, 
 
 export async function actionMintFromCollection(collectionAddress: string, metadata: string) {
   return await runCliAction("mint-from-collection", collectionAddress, metadata);
-}
-
-export async function getDeployment() {
-  const deployFile = path.join(ROOT_DIR, 'deployment.json');
-  if (fs.existsSync(deployFile)) {
-    return JSON.parse(fs.readFileSync(deployFile, 'utf-8'));
-  }
-  return null;
 }
 
 export async function actionDeploy() {
